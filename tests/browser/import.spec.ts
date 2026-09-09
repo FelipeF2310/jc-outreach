@@ -65,6 +65,31 @@ test("organizer rejects a bad CSV, previews a valid one, finalizes and walks imp
   await panel
     .getByRole("button", { name: "Create imported practice assignment" })
     .click();
+  const createAssignment = panel.getByRole("button", {
+    name: "Create imported practice assignment",
+  });
+  const openAssignment = panel.getByRole("link", {
+    name: "Open imported volunteer assignment",
+  });
+  await expect(openAssignment).toBeVisible();
+  // Both actions need separate tap areas, including when their labels wrap.
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const createBox = (await createAssignment.boundingBox())!;
+    const openBox = (await openAssignment.boundingBox())!;
+    expect(openBox.y - (createBox.y + createBox.height)).toBeGreaterThanOrEqual(
+      12,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await panel.screenshot({
+    path: `test-results/import-actions-${test.info().project.name}.png`,
+  });
   await panel
     .getByRole("link", { name: "Open imported volunteer assignment" })
     .click();

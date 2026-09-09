@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: first synthetic slice implemented; production architecture and deployment remain incomplete. Reviewed 2026-09-07. Product behavior follows the reconciled [PRD](PRD.md).
+Status: synthetic field/import slices and administrator/database foundation implemented; hosted verification and production deployment remain incomplete. Updated 2026-09-09. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical; the latest boundary is documented in the administrator foundation section.
 
 ## Stack selection
 
@@ -75,6 +75,18 @@ Additional primary references: [PGlite transactions](https://pglite.dev/docs/api
 - Browser tests use `JCO_EPHEMERAL_DEMO=1` to isolate automation from the organizer's persistent synthetic database. This flag does not bypass the existing synthetic-only/loopback guards.
 
 Primary references: [CSV parser sync API](https://csv.js.org/parse/api/sync/), [CSV parser options](https://csv.js.org/parse/options/), [PostgreSQL date/time operations](https://www.postgresql.org/docs/current/functions-datetime.html).
+
+## Administrator/database foundation — 2026-09-09
+
+- `/admin` is a generic resident-free shell. Every personalized operation is a same-origin API request, not personalized static/SSR HTML. No browser Supabase client, admin localStorage session, token-bearing callback URL or page-render auth proxy is needed. The provider SDK's request-scoped cookie hooks can refresh and write cookies directly in route responses.
+- Email OTP is the selected passwordless variant. Existing allowlisted accounts only; no self-signup. `getUser()` verifies current provider identity before checking confirmed email, anonymous status and the server allowlist. Client-provided identities, cookie user objects and the demo header are not authorization. Origin/Fetch-Metadata/custom-header checks protect mutating cookie requests; response cookies are HTTP-only, SameSite Strict, Secure on HTTPS, scoped to `/api/admin`; responses always remain private/no-store.
+- Temporary identity-provider failures return an unavailable response without discarding a valid cookie. Invalid or no-longer-allowlisted identity clears the cookie. Sign-out clears local session chunks even when provider sign-out fails. Provider access-token expiry/revocation limitations and account configuration are documented in [HOSTED-SETUP.md](HOSTED-SETUP.md).
+- Domain services now depend on the small `Database`/`SqlConnection` interface, implemented structurally by PGlite and by the `pg` adapter. Each real database transaction reserves one client through commit/rollback and releases it in `finally`; rollback-failed connections are destroyed. Runtime connections enforce verified TLS, bounded pool/timeouts and forbid URL parameters that could override TLS.
+- No hosted schema initialization or seeding occurs during HTTP requests. Explicit empty-project bootstrap is transactional, refuses existing outreach namespaces/roles, retains the reviewed base/import schema, enables RLS and revokes public/client-facing grants. The new runtime role can only read the synthetic deployment marker and unexpired campaign metadata. Resident/credential reads, writes and DDL are denied. Hosted field/administrator write privileges are intentionally not enabled yet.
+- All hosted routes require `JCO_HOSTED_STAGE=synthetic-preview`; local practice mode is separate. A database stage marker and exact restricted role are checked before returning campaigns. This is a defense against mode/configuration mistakes, not a proof of data provenance. Production/real-data access remains disabled pending launch gates.
+- Local tests use the real Supabase SDK with fake HTTP provider responses, and a separately started native PostgreSQL Unix-socket cluster for driver/migration/RLS/grant checks. They do not establish actual Supabase account delivery, pooler/TLS behavior, provider project defaults, physical-device acceptance or hosted operational readiness.
+
+Setup instructions and primary references: [HOSTED-SETUP.md](HOSTED-SETUP.md).
 
 ## Primary references
 

@@ -23,6 +23,7 @@ The local **synthetic field workflow and import rehearsal** are implemented. Thi
 - [Engineering foundation and sources](docs/ARCHITECTURE.md)
 - [Work status and revision record](docs/PLAN.md)
 - [Acceptance checklist](docs/ACCEPTANCE.md)
+- [Hosted synthetic-preview setup](docs/HOSTED-SETUP.md)
 - [Synthetic fixture instructions](tests/fixtures/README.md)
 
 ## Try the local synthetic build
@@ -45,6 +46,7 @@ To try the importer, click **New import rehearsal**. Choose a built-in CSV examp
 
 ```sh
 npm run check
+npm run test:postgres
 npm run format:check
 npx playwright install chromium webkit
 npm run build
@@ -53,13 +55,17 @@ npm run test:e2e
 
 The browser suite starts its own loopback server on port 3100 with an ephemeral synthetic database, separate from `.jco-demo/`. Screenshots are synthetic, ignored, and written under `test-results/`. CI is defined in `.github/workflows/check.yml`; it has not run on GitHub until the branch is pushed.
 
+The native PostgreSQL test command requires installed PostgreSQL tools (`pg_config`, `initdb`, `pg_ctl`). It starts and removes only its own isolated temporary Unix-socket test cluster; it never uses a configured hosted database.
+
 ## Implemented versus still required
 
 Implemented: minimal household assignment download, generic offline shell, durable IndexedDB outbox, visit/help/correction/DNC atomic saves, building-access records, manual synchronization, contact-result revisions, server transaction/idempotency checks, and a basic received-results console.
 
 Also implemented: strict UTF-8 CSV validation, minimized source persistence, conservative household/building grouping, repeatable in-memory preview, atomic immutable finalization, duplicate-import protection, a synthetic import-to-assignment flow, and additive checksum-checked local database migrations.
 
-Not yet implemented: production CSV upload/approval handling; real Supabase admin authentication/allowlist and production database adapter; full campaign/event/assignment administration and reassignment; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
+Also implemented: administrator email-code UI and server-only Supabase SDK session/allowlist boundary; secure scoped cookies and session refresh; PostgreSQL connection/transaction adapter; explicit empty-synthetic-database bootstrap and a read-only restricted campaign endpoint. These are locally tested foundations, not a connected live Supabase deployment. Visit `/admin` to see the sign-in screen; the local demo correctly reports that hosted sign-in is not configured.
+
+Still required: connect and test the actual Supabase/SMTP/TLS/pooler setup with approved administrator identities; production CSV upload/approval handling; full campaign/event/assignment administration and reassignment; hosted volunteer endpoints with scoped runtime privileges; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
 
 Supabase PostgreSQL/Auth/Cron and Vercel remain the selected production direction. PGlite is a local PostgreSQL-compatible synthetic development/test harness, not a replacement production backend. Details and evidence are in [architecture](docs/ARCHITECTURE.md) and [work status](docs/PLAN.md).
 

@@ -1,4 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { Database } from "./db-contract";
 import { randomUUID } from "node:crypto";
 import { DomainError } from "../lib/contracts";
 import type { ImportCounts, ImportReceipt } from "../lib/import-contracts";
@@ -6,7 +6,7 @@ import { buildingKey, validateImport } from "./import-validation";
 
 /** Internal service: callers must authorize the administrator and campaign first. */
 export async function finalizeImport(
-  db: PGlite,
+  db: Database,
   campaignId: string,
   bytes: Uint8Array,
   previewDigest: string,

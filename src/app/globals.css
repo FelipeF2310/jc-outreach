@@ -12,6 +12,23 @@
 .import-panel {
   margin: 24px 0;
 }
+.admin-sign-in {
+  max-width: 620px;
+  margin: 48px auto;
+  padding: 24px;
+}
+.admin-sign-in input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.admin-feedback {
+  margin-top: 20px;
+}
 .import-label {
   display: block;
   font-size: 13px;
@@ -26,6 +43,16 @@
 }
 .import-preview .check-row {
   margin-top: 18px;
+}
+.import-assignment-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+.import-assignment-actions .primary {
+  max-width: 100%;
+  text-align: center;
 }
 .import-panel .error {
   margin-top: 20px;

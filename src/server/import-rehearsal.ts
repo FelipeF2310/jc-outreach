@@ -1,4 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { Database } from "./db-contract";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import fixture from "../../tests/fixtures/outreach.json";
@@ -45,7 +45,7 @@ export function rehearsalCsv(caseId: string) {
     ].join("\r\n"),
   );
 }
-export async function createRehearsal(db: PGlite, campaignId: string) {
+export async function createRehearsal(db: Database, campaignId: string) {
   return db.transaction(async (tx) => {
     const existing = await tx.query<{ end_at: Date; deletion_at: Date }>(
       "SELECT r.end_at,c.deletion_at FROM outreach.import_rehearsals r JOIN outreach.campaigns c ON c.id=r.campaign_id WHERE r.campaign_id=$1",
@@ -73,7 +73,7 @@ export async function createRehearsal(db: PGlite, campaignId: string) {
     };
   });
 }
-export async function requireRehearsal(db: PGlite, campaignId: string) {
+export async function requireRehearsal(db: Database, campaignId: string) {
   const row = await db.query(
     "SELECT r.campaign_id FROM outreach.import_rehearsals r JOIN outreach.campaigns c ON c.id=r.campaign_id WHERE r.campaign_id=$1 AND c.deletion_at>now()",
     [campaignId],
@@ -81,7 +81,7 @@ export async function requireRehearsal(db: PGlite, campaignId: string) {
   if (!row.rows.length)
     throw new DomainError(404, "Synthetic import campaign unavailable.");
 }
-export async function assignRehearsal(db: PGlite, campaignId: string) {
+export async function assignRehearsal(db: Database, campaignId: string) {
   const assignmentId = await db.transaction(async (tx) => {
     const row = await tx.query<{ end_at: Date; assignment_id: string | null }>(
       `SELECT r.end_at,r.assignment_id FROM outreach.import_rehearsals r

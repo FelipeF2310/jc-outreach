@@ -1,10 +1,10 @@
 # Preparation and implementation status
 
-Updated: 2026-09-08.
+Updated: 2026-09-09.
 
 ## Current objective
 
-The user authorized resuming implementation. The local synthetic field loop now includes a validated CSV import rehearsal on branch `feat/field-mvp`, based on `origin/main` without altering remote history. The 88-section [PRD](PRD.md) remains the baseline; it was not modified during application implementation. The user has two physical phones available for later acceptance.
+The user authorized resuming implementation and reaffirmed Supabase after considering Neon + Clerk. The local synthetic field/import loop now has a separate administrator authentication and PostgreSQL foundation on branch `feat/field-mvp`. No hosted provider account is connected. The 88-section [PRD](PRD.md) remains the baseline; it was not modified during application implementation. The user has two physical phones available for later acceptance.
 
 ## Prepared
 
@@ -39,7 +39,7 @@ PRD revision verification at the earlier documentation milestone: the saved docu
 
 ## Still required before the field MVP / real-data launch
 
-- Supabase production database adapter/migrations, administrator provider identity and allowlist, production security review and scoped database privileges.
+- Connect and verify the Supabase provider, SMTP, allowlist and hosted TLS/pooler setup. The database adapter, administrator boundary and restricted read-only runtime role now have local tests; expanded runtime privileges and hosted verification remain required.
 - Production administrator-authorized CSV upload path and provenance procedure; full campaign/event/assignment administration and supersession. The import core and synthetic rehearsal now exist, as detailed below.
 - Help/correction administration, associated-content revision and withdrawal review, remaining conversation details, completion markers and full assignment lifecycle UI.
 - Scheduled deletion and failure visibility, production retention integration, backup/restore safeguards, actual update-with-pending-data tests. Synthetic rehearsal deadlines now use tested New York calendar-day arithmetic.
@@ -63,6 +63,20 @@ All remaining PRD launch gates stay required. The validated import rehearsal doe
 - Strict type checking and production-mode Next.js build pass. Synthetic mobile screenshots were visually inspected. Automated browser-engine checks are not physical-phone evidence.
 - No real resident records, production authentication, hosted deployment, or scheduled deletion were exercised. GitHub remains unchanged.
 
+## Layout regression — 2026-09-08
+
+Spacing follow-up (2026-09-08): the finalized-import assignment button and generated link had zero vertical separation in Chromium and WebKit. The paragraph wrapper inherited zero top margin; neither action container supplied spacing. Replaced it with a dedicated vertical action group with a 16px gap. The import browser scenario now checks separation and horizontal overflow at 320px, 390px, and 1280px widths, including wrapped button labels. This is a presentation-only change; import and credential behavior are unchanged.
+
+## Administrator/database foundation — 2026-09-09
+
+- Added passwordless administrator email-code UI at `/admin`, request-scoped server Supabase SDK integration, provider-verified identity and exact email allowlist. HTTP-only scoped cookies, same-origin request checks, no-store responses, session refresh, invalid-code handling and sign-out are implemented. Volunteers still use private links without accounts.
+- Added a small shared SQL interface and native PostgreSQL adapter while retaining the existing PGlite practice backend. Transactions reserve one connection; runtime TLS cannot be downgraded through connection-string options.
+- Added explicit, transactional EMPTY synthetic database preparation. It refuses to replace existing namespaces or adopt existing roles, enables RLS, revokes client-facing grants, and permits the runtime role only to read synthetic-stage metadata and unexpired campaigns. Hosted resident access, writes and field endpoints are not enabled yet.
+- Added [HOSTED-SETUP.md](HOSTED-SETUP.md) with operator account, email-template, secret-handling, role, bootstrap and live-verification steps. No account provisioning, email delivery, hosted migration or deployment has occurred.
+- Existing import-button spacing correction remains included. PRD and applied import migration are unchanged; no GitHub push or remote CI run has occurred.
+
+Local verification: 48 server/integration tests, including 11 administrator/configuration cases, pass. Three native PostgreSQL tests pass, covering real adapter transactions/imports/visits, restricted runtime and client-role permissions, expired-row filtering and late-bootstrap rollback. Strict type checking and production-mode build pass. The 26-case Chromium/WebKit suite passes, including four new administrator checks; positive sign-in UI uses a labeled mock transport and the SDK tests use a fake provider, not a live Supabase account. Synthetic sign-in screenshots were visually inspected. These results do not approve real-data use.
+
 ## One-time PRD revision record
 
 The user authorized the four clarifications and two editorial fixes from the latest review. Changes are confined to these sections:
@@ -79,7 +93,7 @@ The user's final text now establishes CSV-only import, one finalized import per 
 
 ## Next implementation sequence
 
-1. Add the production database adapter and provider-authenticated, allowlisted administrator boundary using synthetic data. Do not expose the demo guard as production authentication.
+1. Connect an owner-approved synthetic Supabase project and verify administrator identity, SMTP and restricted database connection using [HOSTED-SETUP.md](HOSTED-SETUP.md). Do not expose the demo guard as production authentication.
 2. Connect the validated import core to that authorized upload path after reviewing hosting payload/log handling; implement campaign/event/assignment administration and lifecycle rules.
 3. Complete help/correction management, revision review, conversation details and completion reporting.
 4. Implement scheduled deletion, retry/failure visibility and backup safeguards; exercise application updates with pending offline work.

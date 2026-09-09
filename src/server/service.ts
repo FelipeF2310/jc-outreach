@@ -1,4 +1,4 @@
-import type { PGlite, Transaction } from "@electric-sql/pglite";
+import type { Database, SqlConnection } from "./db-contract";
 import { createHash, randomBytes } from "node:crypto";
 import {
   DomainError,
@@ -10,7 +10,7 @@ import {
 
 export const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
-export async function issueCredential(db: PGlite, assignmentId: string) {
+export async function issueCredential(db: Database, assignmentId: string) {
   const token = randomBytes(32).toString("base64url");
   await db.query(
     "INSERT INTO outreach.credentials(token_hash,assignment_id) VALUES ($1,$2)",
@@ -28,7 +28,7 @@ type Access = {
   revoked: boolean;
 };
 async function authorize(
-  db: Transaction,
+  db: SqlConnection,
   token: string,
   action: "read" | "write",
   now: Date,
@@ -72,7 +72,7 @@ async function authorize(
 }
 
 export async function downloadAssignment(
-  db: PGlite,
+  db: Database,
   token: string,
   now = new Date(),
 ): Promise<Assignment> {
@@ -137,7 +137,7 @@ export async function downloadAssignment(
 }
 
 export async function submitOperation(
-  db: PGlite,
+  db: Database,
   token: string,
   input: unknown,
   now = new Date(),
@@ -277,7 +277,7 @@ export async function submitOperation(
   });
 }
 
-export async function results(db: PGlite) {
+export async function results(db: Database) {
   const visits = await db.query<{
     id: string;
     address: string;

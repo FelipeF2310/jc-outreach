@@ -1,8 +1,8 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { Database } from "./db-contract";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
-export async function migrate(db: PGlite) {
+export async function migrate(db: Database) {
   await db.exec(
     "CREATE TABLE IF NOT EXISTS outreach.schema_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())",
   );

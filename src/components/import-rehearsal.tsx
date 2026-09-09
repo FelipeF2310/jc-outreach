@@ -205,20 +205,20 @@ export function ImportRehearsal() {
                 This source cannot be replaced. Retrying finalization does not
                 create duplicate records.
               </p>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => void run("assignment")}
-              >
-                Create imported practice assignment
-              </button>
-              {link && (
-                <p>
+              <div className="import-assignment-actions">
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => void run("assignment")}
+                >
+                  Create imported practice assignment
+                </button>
+                {link && (
                   <a href={link} className="primary">
                     Open imported volunteer assignment ↗
                   </a>
-                </p>
-              )}
+                )}
+              </div>
             </div>
           ) : (
             <>

@@ -32,9 +32,10 @@ The implementation baseline is [docs/PRD.md](docs/PRD.md), containing the user's
 - `npm run dev`: local synthetic development server; hot reload is not the offline acceptance environment.
 - `npm run build` then `npm run demo`: stable local synthetic build for offline checks.
 - `npm run check`: strict TypeScript and actual PostgreSQL integration tests.
+- `npm run test:postgres`: isolated native PostgreSQL adapter/permissions tests; requires local PostgreSQL tools, uses only a temporary Unix-socket cluster, never configured hosted databases.
 - `npm run format:check`: consistent source formatting.
 - `npm run test:e2e`: Chromium/WebKit browser tests against a production-mode synthetic build. Build first. Tests own port 3100 and use a separate ephemeral database; they do not use `.jco-demo`.
 
-Never deploy the local demo authorization as production auth. `JCO_SYNTHETIC_ONLY=1` requires loopback access and refuses Vercel or a configured `DATABASE_URL`. Production endpoints deliberately fail closed until proper Supabase authentication/storage is implemented. No real-data import endpoint exists yet.
+Never deploy the local demo authorization as production auth. `JCO_SYNTHETIC_ONLY=1` requires loopback access and refuses Vercel or a configured `DATABASE_URL`. The separate `/api/admin` boundary uses Supabase provider verification and an explicit allowlist, but is enabled only in configured hosted synthetic-preview mode. No real-data mode or import endpoint exists. Read [hosted setup](docs/HOSTED-SETUP.md) before touching account/session/database configuration; owner bootstrap credentials must never be runtime credentials. Never invoke bootstrap on an existing project without explicit owner approval.
 
 The import parser/finalizer is implemented, but `/api/demo/import` accepts only built-in synthetic case identifiers, never uploaded rows/files. Do not open a raw-upload route until administrator authorization and infrastructure body/log handling are verified. Applied SQL migrations are checksum-checked: add a new migration instead of editing an applied file or resetting resident data.
