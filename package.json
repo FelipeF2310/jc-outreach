@@ -1,0 +1,38 @@
+{
+  "name": "jc-outreach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "JCO_SYNTHETIC_ONLY=1 next dev --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1",
+    "demo": "JCO_SYNTHETIC_ONLY=1 next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm test",
+    "format": "prettier --write src public tests/unit tests/browser *.ts *.json",
+    "format:check": "prettier --check src public tests/unit tests/browser *.ts *.json"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.3",
+    "csv-parse": "7.0.2",
+    "idb": "8.0.3",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "prettier": "3.9.6",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,41 @@
+# Dependencies and generated application output
+node_modules/
+*.tsbuildinfo
+/.jco-demo/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vercel/
+.supabase/
+supabase/.temp/
+
+# Secrets; an example file may contain placeholders only
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Resident data and local operational artifacts never belong in Git
+/data/
+/imports/
+/uploads/
+/exports/
+/backups/
+/private/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.log
+*.zip
+
+# Operating-system files
+.DS_Store

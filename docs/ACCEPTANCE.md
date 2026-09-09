@@ -1,0 +1,67 @@
+# Acceptance checklist
+
+Status: production launch gate remains open. The synthetic field and import slices have executable tests; see [PLAN.md](PLAN.md) for dated evidence and limitations, including the 2026-09-08 import tests. The checks below remain unchecked until each complete production requirement has matching evidence; passing a synthetic subset does not approve resident-data use.
+
+Each implementation check should record a date, tested commit/build, result, and evidence. Use only synthetic residents until all required launch checks pass.
+
+Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The one-time review clarifications below are requirements to test, not passing test results.
+
+## Import and authorization
+
+- [ ] I01: Two distinct people with one validated household key and unit create one door.
+- [ ] I02: Missing, unknown, malformed, or Tier 3 input rejects the entire import without committing resident rows.
+- [ ] I03: Conflicting units/addresses are reported without silently guessing a grouping.
+- [ ] I04: Identifier and ZIP leading zeros survive import; duplicate source people are flagged before grouping.
+- [ ] I05: An identical retry of a finalized import returns the existing result without duplicating people, households, or buildings (PRD Section 19).
+- [ ] I06: The approved-artifact procedure is documented; schema validity is not claimed to prove provenance.
+- [ ] I07: Validation/preview may repeat before finalization; finalization is atomic and a different file cannot replace the finalized dataset (PRD Section 19).
+- [ ] I08: Only the required Section 14 persistence fields and documented application-generated metadata are persisted; recognized discarded fields are absent from storage and logs.
+- [ ] A01: A volunteer cannot read or write an unrelated household by supplying its identifier.
+- [ ] A02: Volunteer endpoints and local storage exclude matching fields and unrelated residents.
+- [ ] A03: A provider-authenticated but non-allowlisted user cannot enter administrator endpoints.
+- [ ] A04: Simultaneous assignment requests cannot intentionally assign the same household twice in one event.
+- [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials.
+
+## Local persistence and synchronization
+
+- [ ] S01: Ready offline appears only after the shell, assignment, reference material, and local-storage verification succeed.
+- [ ] S02: Failed local transaction shows failure and does not advance as if the visit was saved.
+- [ ] S03: Offline visits survive reload and closing/reopening the browser on both physical phones.
+- [ ] S04: Server commits an operation, acknowledgment is lost, and retry causes no duplicate side effects.
+- [ ] S05: After S04, editing the visit creates an ordered revision and preserves history.
+- [ ] S06: Failure creating an associated help request rolls back the operation rather than acknowledging a partial visit.
+- [ ] S07: Independent visits to the same household remain separate; revisions do not inflate attempt counts.
+- [ ] S08: Revocation, expiry, supersession, and campaign deletion produce their defined upload/download behavior.
+- [ ] S09: Two open tabs or simultaneous sync attempts do not lose or duplicate saved operations.
+- [ ] S10: An app/service-worker/local-schema update preserves unsynchronized records.
+- [ ] S11: Interrupted/partial synchronization displays acknowledged and outstanding work accurately.
+- [ ] S12: Administrator status distinguishes the last device report from unknown current offline activity.
+- [ ] S13: Permanent rejection stops automatic retry but retains pending local operations until acknowledgment or campaign expiration (PRD Section 51).
+- [ ] S14: Visit revisions preserve associated request/report identifiers, history, and administrator status; withdrawals are surfaced for administrator review without silently deleting requests (PRD Section 41).
+
+## Field outcomes
+
+- [ ] F01: A blocked lobby creates one building-access record and zero household visits.
+- [ ] F02: A help request saves without a phone number. A number cannot be persisted without recorded permission; removing it allows the underlying request to save (PRD Section 54).
+- [ ] F03: A person-specific correction does not alter other household members or silently rewrite imported truth.
+- [ ] F04: Do-not-contact takes effect locally, reaches other assignments when refreshed, and does not erase visit history.
+- [ ] F05: No eligibility determination can be recorded; program content includes source and review date.
+- [ ] F06: Required fields, tap targets, keyboard behavior, focus, contrast, and error recovery work on the phone UI.
+
+## Expiration and deployment
+
+- [ ] R01: Scheduled deletion removes all application-controlled identifying campaign records despite open help requests.
+- [ ] R02: Expiration immediately blocks access and late uploads, including when the deletion job fails or retries.
+- [ ] R03: Deletion failures are visible; a verified retry completes cleanup.
+- [ ] R04: The app checks the downloaded deadline on opening/resuming offline and performs best-effort local cleanup.
+- [ ] R05: Backup retention/restoration cannot reactivate expired campaign access; limitations are documented.
+- [ ] R06: Privacy-safe retained totals do not preserve person, household, assignment-link, or small identifiable breakdowns.
+- [ ] D01: A clean checkout installs, checks, tests, and builds using documented commands and locked dependencies.
+- [ ] D02: Synthetic preview and production credentials/data are separated; server secrets do not appear in browser bundles.
+- [ ] D03: Database migrations and rollback/recovery steps are documented and exercised on synthetic data.
+
+## Physical-phone session record
+
+The user has two phones. Record exact models, OS versions, browser versions, build/commit, HTTPS origin, and browser versus home-screen context when testing. Do not fill these with assumed values.
+
+For each phone: download; enable airplane mode; reopen; save a no-answer visit and a help request without a number; close/reopen; confirm recovery; restore connectivity; sync; inspect server receipts; retry; test update with pending work. Also test a synthetic blocked building and partial/rejected upload. Desktop browser emulation is additional evidence, not a substitute for these sessions.

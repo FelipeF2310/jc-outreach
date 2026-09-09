@@ -1,2 +1,66 @@
-# jc-outreach
-Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking
+# Jersey City Benefits Outreach
+
+Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
+
+The local **synthetic field workflow and import rehearsal** are implemented. This is not the completed field MVP or an approved real-data deployment. No real residents, production credentials, or external infrastructure have been loaded. The agreed PRD remains unchanged during implementation.
+
+## Established requirements
+
+- Approximately 10 concurrent volunteers; 938 household doors containing 1,157 listed people across 605 buildings.
+- Household-first outreach for Senior Freeze, Stay NJ, and ANCHOR; never determine eligibility.
+- Tier 1 and Tier 2 only. Tier 3, the renter-exclusion file, and the original voter file stay outside this project.
+- Volunteers use private assignment links with no account or password screen; administrators manage the permitted campaign data.
+- Downloaded assignments and visits must work offline on iPhone Safari and Android Chrome.
+- Independently recorded visits survive; retries do not create duplicates.
+- Building access failures are distinct from household attempts.
+- Help requests work without a phone number. Optional numbers must come from residents with permission for application-help contact.
+- Identifying campaign data expires 30 days after the campaign end date, including unresolved requests. Future reuse retains templates and non-identifying totals, not a permanent resident directory.
+
+## Preparation documents
+
+- [MVP implementation PRD](docs/PRD.md)
+- [Agent working instructions](AGENTS.md)
+- [Engineering foundation and sources](docs/ARCHITECTURE.md)
+- [Work status and revision record](docs/PLAN.md)
+- [Acceptance checklist](docs/ACCEPTANCE.md)
+- [Synthetic fixture instructions](tests/fixtures/README.md)
+
+## Try the local synthetic build
+
+Requires Node 22 or newer (local verification uses Node 26.7.0). From this directory:
+
+```sh
+npm ci
+npm run build
+npm run demo
+```
+
+Open `http://127.0.0.1:3000`. Generate a practice link, open the volunteer assignment, and download. Once Ready offline appears, disconnect, record a visit, reopen `/field`, reconnect, and synchronize. Return to the organizer screen and refresh results. Names/addresses are explicit fixtures; do not enter real phone numbers.
+
+Use `npm run dev` for hot reload only. Test offline behavior with the stable built app, not development chunks. Keep one demo server running at a time: the local PostgreSQL fixture database in `.jco-demo/` has one owning process. Do not expose this server through a public tunnel or reuse its demo access as production authentication.
+
+To try the importer, click **New import rehearsal**. Choose a built-in CSV example, validate it, inspect the household preview, confirm the source, and finalize. A valid import can become a practice assignment using the existing volunteer link/offline flow. Invalid examples never persist resident rows. Reloading the organizer page restores recent rehearsal campaigns. Actual file selection/upload is deliberately unavailable until production access and infrastructure handling are approved.
+
+## Check the implementation
+
+```sh
+npm run check
+npm run format:check
+npx playwright install chromium webkit
+npm run build
+npm run test:e2e
+```
+
+The browser suite starts its own loopback server on port 3100 with an ephemeral synthetic database, separate from `.jco-demo/`. Screenshots are synthetic, ignored, and written under `test-results/`. CI is defined in `.github/workflows/check.yml`; it has not run on GitHub until the branch is pushed.
+
+## Implemented versus still required
+
+Implemented: minimal household assignment download, generic offline shell, durable IndexedDB outbox, visit/help/correction/DNC atomic saves, building-access records, manual synchronization, contact-result revisions, server transaction/idempotency checks, and a basic received-results console.
+
+Also implemented: strict UTF-8 CSV validation, minimized source persistence, conservative household/building grouping, repeatable in-memory preview, atomic immutable finalization, duplicate-import protection, a synthetic import-to-assignment flow, and additive checksum-checked local database migrations.
+
+Not yet implemented: production CSV upload/approval handling; real Supabase admin authentication/allowlist and production database adapter; full campaign/event/assignment administration and reassignment; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
+
+Supabase PostgreSQL/Auth/Cron and Vercel remain the selected production direction. PGlite is a local PostgreSQL-compatible synthetic development/test harness, not a replacement production backend. Details and evidence are in [architecture](docs/ARCHITECTURE.md) and [work status](docs/PLAN.md).
+
+All committed test data is explicitly synthetic. Production uploads, exports, tokens, and secrets must remain outside Git. `.gitignore` is a precaution, not an authorization or data-loss prevention control.
