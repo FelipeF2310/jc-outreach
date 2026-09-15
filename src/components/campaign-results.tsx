@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { FieldSnapshot } from "@/lib/field-admin-contracts";
 import type { AssignmentWorkspace } from "@/lib/assignment-admin-contracts";
 import { outcomes } from "@/lib/contracts";
+import { HelpRequestQueue } from "./help-request-queue";
 
 export function CampaignResults({
   campaignId,
@@ -10,12 +11,16 @@ export function CampaignResults({
   ready,
   selected,
   onSelect,
+  administratorId,
+  deletionAt,
 }: {
   campaignId: string;
   assignments: AssignmentWorkspace["assignments"];
   ready: boolean;
   selected: string;
   onSelect: (id: string) => void;
+  administratorId: string;
+  deletionAt: string;
 }) {
   const assignment =
     assignments.find((a) => a.id === selected) ?? assignments[0];
@@ -60,12 +65,19 @@ export function CampaignResults({
           <AssignmentResults key={assignment.id} assignmentId={assignment.id} />
         </>
       )}
+      {ready && (
+        <HelpRequestQueue
+          key={`${administratorId}:${campaignId}`}
+          campaignId={campaignId}
+          administratorId={administratorId}
+          deletionAt={deletionAt}
+        />
+      )}
       <div className="follow-up-notice">
-        <h3>Application help &amp; corrections</h3>
+        <h3>Resident corrections</h3>
         <p className="fine">
-          Volunteers can record requests and corrections. Administrator review
-          queues are not connected yet; this preview shows application-help
-          counts only.
+          Volunteers can record corrections. The administrator correction-review
+          queue is not connected yet.
         </p>
       </div>
     </section>

@@ -139,6 +139,16 @@ The private non-login administrator executor gains UPDATE on this one column; ru
 
 The administrator's pending issuance stores its label alongside its stable ID in session storage for safe retry. The one-time raw credential is still never stored there. Labels are bounded text rendered through React, not HTML; they are organizer assertions, not identity verification or visit attribution. They live on credential rows and expire with the campaign, without a cross-campaign volunteer profile. Rename-existing UI is outside this slice.
 
+## Campaign application-help queue — 2026-09-15
+
+`POST /api/admin/help` uses the existing provider verification, allowlist, origin checks and private/no-store responses. Strict list/update contracts accept only campaign/request/action IDs, expected version and the next status; the actor comes from verified identity. The queue is campaign-wide while existing visit totals remain assignment-specific. Its explicit DTO includes the household, optional requesting person, source-visit/assignment metadata, consented phone, arrangement, suppression and status/version. It excludes source matching data, unrelated campaigns and credential details. No new volunteer payload or field-submission logic is introduced.
+
+Additive 008 creates a private NOLOGIN `jco_help_executor`, two narrow SECURITY DEFINER functions, version/update columns on help requests and an append-only status-change receipt table. The runtime gains only exact function execution, not table grants or role membership. Function search paths are fixed, references qualified, provider/PUBLIC grants revoked and new history RLS enabled. Non-login executor policies are permissive internally; security depends on the narrow routines and server authorization, not claims of per-administrator RLS isolation. All approved administrators can review the permitted campaign.
+
+Updates lock the action ID and request row, check campaign lifetime/request scope/expected version, and atomically append actor/previous status/new status/version evidence with the status update. Allowed progression is New → In progress → Resolved. Identical request-ID retries return the original receipt; changed actor/content conflicts. Stale editors must refresh. Retrying an older acknowledged action never rolls back a newer status. Original visits, immutable field operations and help identifiers are untouched. History references campaign/request with cascading deletion; open tasks never extend retention. A deletion scheduler remains unimplemented.
+
+Administrator session storage retains only a pending update's IDs/version/status, scoped to administrator/campaign and bounded by campaign deletion; no names, addresses, phones or queue snapshots are persisted there. Reads ignore obsolete/unmounted results; unknown mutation results freeze further updates until retry; permanent validation/conflict failures require refresh. No successful status confirmation is shown until a matching receipt arrives. Resolved cards/source metadata use existing disclosure patterns, colors and spacing; requests without a phone remain actionable. No offline administrator workflow, task ownership, arbitrary editing/reopening, notifications or correction management is added.
+
 ## Reference links
 
 - [Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps)

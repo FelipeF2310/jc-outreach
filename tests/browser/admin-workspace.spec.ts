@@ -90,6 +90,12 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
         },
       });
     const input = route.request().postDataJSON();
+    if (path.endsWith("/help"))
+      return route.fulfill({
+        json: {
+          queue: { campaignId: input.campaignId, ready: false, requests: [] },
+        },
+      });
     if (path.endsWith("/assignments")) {
       expect(input).toEqual({ action: "workspace", campaignId: id(1) });
       return route.fulfill({ json: { workspace } });
@@ -165,7 +171,9 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
     ),
   ).toBeVisible();
   await expect(
-    results.getByText(/Administrator review queues are not connected yet/),
+    results.getByText(
+      /administrator correction-review queue is not connected yet/,
+    ),
   ).toBeVisible();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });

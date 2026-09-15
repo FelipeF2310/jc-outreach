@@ -15,6 +15,8 @@ import { migrateAssignments } from "../../src/server/migrate-assignments";
 import { assignmentAdmin } from "../../src/server/assignment-admin";
 import { migrateField } from "../../src/server/migrate-field";
 import { migrateLinkLabels } from "../../src/server/migrate-link-labels";
+import { migrateHelpQueue } from "../../src/server/migrate-help-queue";
+import { helpAdmin } from "../../src/server/admin-help";
 import {
   downloadHostedAssignment,
   submitHostedOperation,
@@ -1576,5 +1578,312 @@ test("link labels persist atomically, preserve legacy credentials and reject cha
   assert.deepEqual(
     await downloadHostedAssignment(runtime, legacy.token!),
     before,
+  );
+});
+
+test("help queue preserves visits, scopes reads, audits atomic versioned updates and safely retries", async () => {
+  const runtime = postgresDatabase(reader),
+    actor = randomUUID();
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Help queue practice", endDate: "2030-05-01" },
+    actor,
+  );
+  const other = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Other help campaign", endDate: "2030-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Help practice",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const aid = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: aid,
+      campaignId: campaign.id,
+      eventId: event.savedId,
+      name: "Practice helper",
+      kind: "building",
+      householdIds: [event.workspace.households[0].id],
+    },
+    actor,
+  );
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId: aid,
+      label: "Help test",
+    },
+    actor,
+  );
+  const before = await downloadHostedAssignment(runtime, issued.token!);
+  const makeVisit = (phone: string): VisitOperation => ({
+    id: randomUUID(),
+    visitId: randomUUID(),
+    assignmentId: aid,
+    createdAt: new Date().toISOString(),
+    schemaVersion: 1,
+    kind: "visit",
+    householdId: before.households[0].id,
+    result: "resident",
+    programs: [],
+    help: {
+      id: randomUUID(),
+      personId: phone ? before.households[0].people[0].id : null,
+      phone,
+      consent: !!phone,
+      arrangement: phone ? "unspecified" : "return",
+    },
+    corrections: [],
+    doNotContact: false,
+  });
+  const op = makeVisit(""),
+    second = makeVisit("201-555-0100");
+  const visitReceipt = await submitHostedOperation(runtime, issued.token!, op);
+  await submitHostedOperation(runtime, issued.token!, second);
+  const beforeQueue = await helpAdmin(
+    runtime,
+    { action: "list", campaignId: campaign.id },
+    actor,
+  );
+  assert.equal(beforeQueue.queue.ready, false);
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateHelpQueue(postgresDatabase(migrator));
+    await migrateHelpQueue(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  const list = () =>
+    helpAdmin(runtime, { action: "list", campaignId: campaign.id }, actor);
+  let queue = (await list()).queue;
+  assert.equal(queue.ready, true);
+  assert.equal(queue.requests.length, 2);
+  const first = queue.requests.find((r) => r.id === op.help!.id)!;
+  assert.equal(first.phone, "");
+  assert.equal(first.consent, false);
+  assert.equal(first.requester, null);
+  assert.equal(first.arrangement, "return");
+  assert.equal(first.status, "New");
+  assert.equal(first.version, 0);
+  const withPhone = queue.requests.find((r) => r.id === second.help!.id)!;
+  assert.equal(withPhone.phone, "201-555-0100");
+  assert.equal(withPhone.consent, true);
+  assert.ok(withPhone.requester);
+  assert.equal(first.visitId, op.visitId);
+  assert.equal(first.assignmentName, "Practice helper");
+  assert.equal(
+    (await helpAdmin(runtime, { action: "list", campaignId: other.id }, actor))
+      .queue.requests.length,
+    0,
+  );
+  const update = {
+    action: "update",
+    id: randomUUID(),
+    campaignId: campaign.id,
+    requestId: op.help!.id,
+    expectedVersion: 0,
+    status: "In progress",
+  } as const;
+  const denied = (status: number) => (e: unknown) =>
+    e instanceof DomainError && e.status === status;
+  await assert.rejects(
+    () => helpAdmin(runtime, { ...update, campaignId: other.id }, actor),
+    denied(404),
+  );
+  await assert.rejects(
+    () => helpAdmin(runtime, { ...update, status: "Resolved" }, actor),
+    denied(409),
+  );
+  const results = await Promise.all([
+    helpAdmin(runtime, update, actor),
+    helpAdmin(runtime, update, actor),
+  ]);
+  assert.deepEqual(results[0].receipt, results[1].receipt);
+  assert.equal(results[0].receipt?.version, 1);
+  await assert.rejects(
+    () => helpAdmin(runtime, { ...update, status: "Resolved" }, actor),
+    denied(409),
+  );
+  await assert.rejects(
+    () => helpAdmin(runtime, update, randomUUID()),
+    denied(409),
+  );
+  await assert.rejects(
+    () => helpAdmin(runtime, { ...update, id: randomUUID() }, actor),
+    denied(409),
+  );
+  const finish = {
+    ...update,
+    id: randomUUID(),
+    expectedVersion: 1,
+    status: "Resolved",
+  };
+  const race = await Promise.allSettled([
+    helpAdmin(runtime, finish, actor),
+    helpAdmin(runtime, { ...finish, id: randomUUID() }, randomUUID()),
+  ]);
+  assert.equal(race.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(race.filter((r) => r.status === "rejected").length, 1);
+  const lateRetry = await helpAdmin(runtime, update, actor);
+  assert.equal(lateRetry.receipt?.status, "In progress");
+  assert.equal(
+    lateRetry.queue.requests.find((r) => r.id === op.help!.id)!.status,
+    "Resolved",
+  );
+  assert.equal(
+    lateRetry.queue.requests.find((r) => r.id === op.help!.id)!.version,
+    2,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS count FROM outreach.help_status_changes WHERE request_id=$1",
+        [op.help!.id],
+      )
+    ).rows[0].count,
+    2,
+  );
+  const history = await pool.query(
+    "SELECT previous_status,status FROM outreach.help_status_changes WHERE request_id=$1 ORDER BY expected_version",
+    [op.help!.id],
+  );
+  assert.deepEqual(history.rows, [
+    { previous_status: "New", status: "In progress" },
+    { previous_status: "In progress", status: "Resolved" },
+  ]);
+  assert.deepEqual(
+    await submitHostedOperation(runtime, issued.token!, op),
+    visitReceipt,
+  );
+  await submitHostedOperation(runtime, issued.token!, {
+    kind: "revision",
+    schemaVersion: 1,
+    id: randomUUID(),
+    assignmentId: aid,
+    visitId: op.visitId,
+    householdId: op.householdId,
+    createdAt: new Date().toISOString(),
+    originalOperationId: op.id,
+    previousOperationId: op.id,
+    result: "other",
+  });
+  assert.equal(
+    (await list()).queue.requests.find((r) => r.id === op.help!.id)!.status,
+    "Resolved",
+  );
+  assert.deepEqual(
+    await downloadHostedAssignment(runtime, issued.token!),
+    before,
+  );
+
+  // An actual late database failure must roll back both status and audit receipt.
+  await pool.query(
+    "CREATE FUNCTION outreach.fail_help_history() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic audit failure'; END $$; CREATE TRIGGER fail_help_history BEFORE INSERT ON outreach.help_status_changes FOR EACH ROW EXECUTE FUNCTION outreach.fail_help_history()",
+  );
+  const broken = { ...update, id: randomUUID(), requestId: second.help!.id };
+  await assert.rejects(() => helpAdmin(runtime, broken, actor));
+  await pool.query(
+    "DROP TRIGGER fail_help_history ON outreach.help_status_changes; DROP FUNCTION outreach.fail_help_history()",
+  );
+  assert.equal(
+    (await list()).queue.requests.find((r) => r.id === second.help!.id)!.status,
+    "New",
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS count FROM outreach.help_status_changes WHERE id=$1",
+        [broken.id],
+      )
+    ).rows[0].count,
+    0,
+  );
+  await helpAdmin(runtime, broken, actor);
+  for (const sql of [
+    "SELECT * FROM outreach.help_requests",
+    "SELECT * FROM outreach.help_status_changes",
+    "UPDATE outreach.help_requests SET status='Resolved'",
+    "SET ROLE jco_help_executor",
+  ])
+    await assert.rejects(() => reader.query(sql), /permission denied/);
+  for (const role of ["anon", "authenticated", "service_role"])
+    for (const signature of [
+      "outreach.help_queue(uuid)",
+      "outreach.update_help_status(uuid,uuid,uuid,integer,text,uuid)",
+    ])
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT has_function_privilege($1,$2,'EXECUTE') allowed",
+            [role, signature],
+          )
+        ).rows[0].allowed,
+        false,
+      );
+  for (const invalid of [null, "New", "invalid"])
+    await assert.rejects(() =>
+      reader.query("SELECT outreach.update_help_status($1,$2,$3,$4,$5,$6)", [
+        randomUUID(),
+        campaign.id,
+        second.help!.id,
+        1,
+        invalid,
+        actor,
+      ]),
+    );
+  await pool.query(
+    "UPDATE outreach.households SET suppressed=true WHERE id=$1",
+    [op.householdId],
+  );
+  assert.equal((await list()).queue.requests[0].suppressed, true);
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaign.id],
+  );
+  await assert.rejects(list, denied(404));
+  await assert.rejects(() => helpAdmin(runtime, update, actor), denied(404));
+  await pool.query("DELETE FROM outreach.campaigns WHERE id=$1", [campaign.id]);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS count FROM outreach.help_status_changes WHERE campaign_id=$1",
+        [campaign.id],
+      )
+    ).rows[0].count,
+    0,
   );
 });

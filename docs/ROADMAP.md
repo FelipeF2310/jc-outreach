@@ -8,7 +8,7 @@ Administrator sign-in, restricted Supabase access, campaign creation/reload, syn
 
 ## Next milestone
 
-The administrator usability pass and live field-loop happy path are complete. Next, deliver a basic application-help queue through the existing Results & follow-up section: inspect a synchronized request and move it from New to In progress to Resolved, with authorization and preserved request history. Follow with correction review, assignment lifecycle and completion reporting. Continue remaining live negative/offline checks without conflating them with the happy-path confirmation.
+The administrator usability pass and live field-loop happy path are complete. The basic application-help queue is now implemented locally in Results & follow-up; migration 008 and live verification remain pending. Next: apply the reviewed additive update, synchronize a synthetic request without a phone, move it from New to In progress to Resolved, and reload to confirm persistence. Follow with correction review, assignment lifecycle and completion reporting. Continue remaining live negative/offline checks without conflating them with the happy-path confirmation.
 
 Keep this workflow working throughout: an administrator selects imported household doors, assigns them to a volunteer for an event, issues a private link, and receives synchronized results.
 

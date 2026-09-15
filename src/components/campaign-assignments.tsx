@@ -569,6 +569,8 @@ export function CampaignAssignments({
       </section>
       <CampaignResults
         campaignId={campaignId}
+        administratorId={administratorId}
+        deletionAt={deletionAt}
         assignments={workspace?.assignments ?? []}
         ready={fieldReady}
         selected={resultAssignment}

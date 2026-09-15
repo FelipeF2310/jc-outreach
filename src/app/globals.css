@@ -54,6 +54,35 @@
 .assignment-field-controls {
   margin-top: 12px;
 }
+.help-request-card {
+  margin: 18px 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.help-request-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.help-request-heading h4 {
+  margin: 0;
+}
+.help-request-heading p {
+  margin: 8px 0;
+}
+.help-status {
+  color: var(--green);
+  font-weight: 600;
+}
+.help-visit-id {
+  overflow-wrap: anywhere;
+}
+.help-request-card > button {
+  margin-top: 12px;
+}
 .private-link-box .import-assignment-actions {
   margin-top: 14px;
 }

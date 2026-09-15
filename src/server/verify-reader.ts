@@ -42,6 +42,7 @@ export async function verifyReader(db: Database) {
             OR (p.oid IN (to_regprocedure('outreach.assignment_workspace(uuid)'), to_regprocedure('outreach.create_outreach_event(uuid,uuid,text,date,uuid)'), to_regprocedure('outreach.prepare_assignment(uuid,uuid,uuid,text,text,uuid[],uuid)')) AND owner_role.rolname = 'jco_assignment_executor')
             OR (p.oid IN (to_regprocedure('outreach.download_field_assignment(text)'), to_regprocedure('outreach.submit_field_operation(text,jsonb)')) AND owner_role.rolname='jco_field_executor')
             OR (p.oid IN (to_regprocedure('outreach.field_admin_snapshot(uuid)'), to_regprocedure('outreach.issue_field_credential(uuid,uuid,text,uuid)'), to_regprocedure('outreach.issue_field_credential(uuid,uuid,text,uuid,text)'), to_regprocedure('outreach.revoke_field_credential(uuid,uuid,uuid)')) AND owner_role.rolname='jco_field_admin_executor')
+            OR (p.oid IN (to_regprocedure('outreach.help_queue(uuid)'), to_regprocedure('outreach.update_help_status(uuid,uuid,uuid,integer,text,uuid)')) AND owner_role.rolname='jco_help_executor')
           ), false)
           OR NOT p.prosecdef
           OR owner_role.rolcanlogin OR owner_role.rolsuper OR owner_role.rolbypassrls
