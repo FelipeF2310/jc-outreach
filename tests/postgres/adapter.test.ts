@@ -14,6 +14,7 @@ import { migrateImports } from "../../src/server/migrate-imports";
 import { migrateAssignments } from "../../src/server/migrate-assignments";
 import { assignmentAdmin } from "../../src/server/assignment-admin";
 import { migrateField } from "../../src/server/migrate-field";
+import { migrateLinkLabels } from "../../src/server/migrate-link-labels";
 import {
   downloadHostedAssignment,
   submitHostedOperation,
@@ -1372,4 +1373,208 @@ test("hosted private links scope downloads and atomic operations; retries, revis
         ).rows[0].allowed,
         false,
       );
+});
+
+test("link labels persist atomically, preserve legacy credentials and reject changed retry labels", async () => {
+  const runtime = postgresDatabase(reader);
+  const actor = randomUUID();
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Link label practice", endDate: "2030-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Label practice",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const aid = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: aid,
+      campaignId: campaign.id,
+      eventId: event.savedId,
+      name: "Practice team",
+      kind: "building",
+      householdIds: [event.workspace.households[0].id],
+    },
+    actor,
+  );
+  const legacyId = randomUUID();
+  const legacy = await hostedFieldAdmin(
+    runtime,
+    { action: "issue", id: legacyId, assignmentId: aid },
+    actor,
+  );
+  const before = await downloadHostedAssignment(runtime, legacy.token!);
+  const op: VisitOperation = {
+    id: randomUUID(),
+    visitId: randomUUID(),
+    assignmentId: aid,
+    createdAt: new Date().toISOString(),
+    schemaVersion: 1,
+    kind: "visit",
+    householdId: before.households[0].id,
+    result: "no_answer",
+    programs: [],
+    help: null,
+    corrections: [],
+    doNotContact: false,
+  };
+  const receipt = await submitHostedOperation(runtime, legacy.token!, op);
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateLinkLabels(postgresDatabase(migrator));
+    await migrateLinkLabels(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  assert.deepEqual(
+    await downloadHostedAssignment(runtime, legacy.token!),
+    before,
+  );
+  assert.deepEqual(
+    await submitHostedOperation(runtime, legacy.token!, op),
+    receipt,
+  );
+  const initial = await hostedFieldAdmin(
+    runtime,
+    { action: "status", assignmentId: aid },
+    actor,
+  );
+  assert.equal(initial.snapshot.labelsReady, true);
+  assert.equal(
+    initial.snapshot.credentials.find((c) => c.id === legacyId)?.label,
+    null,
+  );
+  assert.equal(initial.snapshot.counts.attempts, 1);
+  const request = {
+    action: "issue",
+    id: randomUUID(),
+    assignmentId: aid,
+    label: "Practice Alex — Saturday",
+  };
+  const pair = await Promise.all([
+    hostedFieldAdmin(runtime, request, actor),
+    hostedFieldAdmin(runtime, request, actor),
+  ]);
+  assert.equal(pair.filter((r) => r.token !== null).length, 1);
+  const issued = pair.find((r) => r.token !== null)!;
+  assert.equal(
+    issued.snapshot.credentials.find((c) => c.id === request.id)?.label,
+    request.label,
+  );
+  assert.equal(issued.snapshot.credentials.length, 2);
+  const restored = await hostedFieldAdmin(
+    runtime,
+    { action: "status", assignmentId: aid },
+    actor,
+  );
+  assert.equal(
+    restored.snapshot.credentials.find((c) => c.id === request.id)?.label,
+    request.label,
+  );
+  assert.equal((await hostedFieldAdmin(runtime, request, actor)).token, null);
+  const conflict = (e: unknown) => e instanceof DomainError && e.status === 409;
+  await assert.rejects(
+    () =>
+      hostedFieldAdmin(
+        runtime,
+        { ...request, label: "Different volunteer" },
+        actor,
+      ),
+    conflict,
+  );
+  await assert.rejects(
+    () => hostedFieldAdmin(runtime, request, randomUUID()),
+    conflict,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(await downloadHostedAssignment(runtime, issued.token!)),
+    /Practice Alex|label|labelsReady/,
+  );
+  for (const label of [null, "", " ", "x".repeat(101), "bad\nname"]) {
+    const id = randomUUID();
+    await assert.rejects(() =>
+      reader.query("SELECT outreach.issue_field_credential($1,$2,$3,$4,$5)", [
+        id,
+        aid,
+        hashToken(randomUUID()),
+        actor,
+        label,
+      ]),
+    );
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int n FROM outreach.credentials WHERE id=$1",
+          [id],
+        )
+      ).rows[0].n,
+      0,
+    );
+  }
+  await assert.rejects(() =>
+    reader.query("UPDATE outreach.credentials SET label='forged' WHERE id=$1", [
+      request.id,
+    ]),
+  );
+  await assert.rejects(() =>
+    reader.query("SELECT label FROM outreach.credentials"),
+  );
+  for (const role of ["anon", "authenticated", "service_role"])
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_function_privilege($1,'outreach.issue_field_credential(uuid,uuid,text,uuid,text)','EXECUTE') allowed",
+          [role],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  const revoked = await hostedFieldAdmin(
+    runtime,
+    { action: "revoke", id: request.id, assignmentId: aid, confirmed: true },
+    actor,
+  );
+  assert.equal(
+    revoked.snapshot.credentials.find((c) => c.id === request.id)?.label,
+    request.label,
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, issued.token!),
+    (e) => e instanceof DomainError && e.status === 403,
+  );
+  assert.deepEqual(
+    await downloadHostedAssignment(runtime, legacy.token!),
+    before,
+  );
 });

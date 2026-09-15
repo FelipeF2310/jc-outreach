@@ -12,6 +12,8 @@ The owner requested a usability pass before resuming the live field-loop test: o
 
 An administrator selects three imported household doors, assigns them to a volunteer for an event, issues one private link, and receives that volunteer's synchronized results.
 
+Owner-requested addition: saved names for newly issued volunteer links are implemented locally; migration 007 and hosted label verification remain pending. Preserve existing unnamed links and distinguish organizer labels from verified identity. The final Household list will include approved CSV selection/upload and validation/confirmation; it remains disabled while the source-safety launch checks are open.
+
 Deliver this in independently testable slices:
 
 1. **Event and assignment preparation (hosted building-run save/reload confirmed):** separate events from campaigns, select imported households/buildings, order scattered doors, save an assignment, prevent duplicate active assignment in the same event, restore the organizer workspace after reload. Migration 005 and restricted runtime reads were verified on 2026-09-15. The owner subsequently confirmed one saved event and a two-door building run surviving reload, with both doors marked already assigned. Hosted manual-order and competing-save acceptance remain distinct from this happy-path confirmation.

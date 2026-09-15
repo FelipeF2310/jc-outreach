@@ -20,6 +20,7 @@ export function AssignmentFieldControls({
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false);
   const [snapshot, setSnapshot] = useState<FieldSnapshot>();
+  const [label, setLabel] = useState(name);
   const [pending, setPending] = useState<FieldAdminRequest>();
   const [storageReady, setStorageReady] = useState(false);
   const [link, setLink] = useState<{ id: string; url: string }>();
@@ -50,6 +51,8 @@ export function AssignmentFieldControls({
         const request = fieldAdminRequest.parse(JSON.parse(saved));
         if (request.assignmentId !== assignmentId) throw Error();
         setPending(request);
+        if (request.action === "issue" && request.label !== undefined)
+          setLabel(request.label);
         setOpen(true);
       }
       setStorageReady(true);
@@ -101,6 +104,10 @@ export function AssignmentFieldControls({
       if (
         request.action === "issue" &&
         (body.credentialId !== request.id ||
+          (request.label !== undefined &&
+            body.snapshot.credentials?.find(
+              (c: { id: string; label?: string }) => c.id === request.id,
+            )?.label !== request.label) ||
           !(
             body.token === null ||
             (typeof body.token === "string" &&
@@ -111,6 +118,15 @@ export function AssignmentFieldControls({
           "Link receipt could not be verified. Retry the pending action.",
         );
       setSnapshot(body.snapshot);
+      if (
+        link &&
+        (!body.snapshot.credentials.some(
+          (c: { id: string; revoked: boolean }) =>
+            c.id === link.id && !c.revoked,
+        ) ||
+          Date.now() >= Date.parse(body.snapshot.uploadEndsAt))
+      )
+        setLink(undefined);
       if (request.action !== "status") {
         sessionStorage.removeItem(key);
         setPending(undefined);
@@ -184,6 +200,28 @@ export function AssignmentFieldControls({
               </button>
             </p>
           )}
+          {snapshot?.labelsReady && (
+            <label className="import-label">
+              Volunteer / link name
+              <input
+                value={label}
+                maxLength={100}
+                disabled={busy || !!pending || !storageReady}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+              <small>
+                For example, “Practice Volunteer A — Saturday”. This is an
+                organizer label, not a verified identity. Use practice names
+                only in this preview.
+              </small>
+            </label>
+          )}
+          {snapshot && !snapshot.labelsReady && (
+            <p className="fine">
+              Individual link names need the link-label database update.
+              Existing links still work.
+            </p>
+          )}
           <div className="import-assignment-actions">
             <button
               disabled={
@@ -191,6 +229,7 @@ export function AssignmentFieldControls({
                 !!pending ||
                 !storageReady ||
                 !snapshot ||
+                (snapshot.labelsReady === true && !label.trim()) ||
                 Date.now() >= Date.parse(snapshot.eventEndsAt)
               }
               onClick={() =>
@@ -198,6 +237,7 @@ export function AssignmentFieldControls({
                   action: "issue",
                   assignmentId,
                   id: crypto.randomUUID(),
+                  ...(snapshot?.labelsReady ? { label: label.trim() } : {}),
                 })
               }
             >
@@ -243,65 +283,105 @@ export function AssignmentFieldControls({
                 <br />
                 Pending uploads end: {date(snapshot.uploadEndsAt)}
               </p>
-              <h4>Issued links</h4>
-              {snapshot.credentials.length === 0 && <p>No links issued.</p>}
-              {snapshot.credentials.map((c, i) => (
-                <div className="credential-row" key={c.id}>
-                  <p>
-                    Link {i + 1} ·{" "}
-                    {c.revoked
-                      ? "Revoked"
+              {(["active", "expired", "revoked"] as const).map((group) => {
+                // Keep original issuance numbers when moving rows between groups.
+                const entries = snapshot.credentials
+                  .map((credential, index) => ({ credential, index }))
+                  .filter(({ credential }) => {
+                    const state = credential.revoked
+                      ? "revoked"
                       : Date.now() >= Date.parse(snapshot.uploadEndsAt)
-                        ? "Expired"
-                        : Date.now() >= Date.parse(snapshot.eventEndsAt)
-                          ? "Upload only"
-                          : "Active"}
-                    <br />
-                    <small>Issued: {date(c.issuedAt)}</small>
-                  </p>
-                  {!c.revoked && (
-                    <>
-                      {confirm !== c.id ? (
-                        <button
-                          disabled={busy || !!pending || !storageReady}
-                          onClick={() => setConfirm(c.id)}
-                        >
-                          Revoke link {i + 1}
-                        </button>
-                      ) : (
+                        ? "expired"
+                        : "active";
+                    return state === group;
+                  });
+                const rows = entries.map(({ credential: c, index: i }) => (
+                  <div className="credential-row" key={c.id}>
+                    {c.label && <strong>{c.label}</strong>}
+                    <p>
+                      Link {i + 1} ·{" "}
+                      {c.revoked
+                        ? "Revoked"
+                        : Date.now() >= Date.parse(snapshot.uploadEndsAt)
+                          ? "Expired"
+                          : Date.now() >= Date.parse(snapshot.eventEndsAt)
+                            ? "Upload only"
+                            : "Active"}
+                      <br />
+                      <small>Issued: {date(c.issuedAt)}</small>
+                      {c.revoked && (
                         <>
-                          <p>
-                            Revoking blocks pending uploads from this link,
-                            including work already saved offline. It cannot
-                            erase a disconnected copy.
-                          </p>
-                          <div className="import-assignment-actions">
-                            <button
-                              disabled={busy || !!pending || !storageReady}
-                              onClick={() =>
-                                void run({
-                                  action: "revoke",
-                                  assignmentId,
-                                  id: c.id,
-                                  confirmed: true,
-                                })
-                              }
-                            >
-                              Confirm revoke link {i + 1}
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() => setConfirm(undefined)}
-                            >
-                              Cancel revocation
-                            </button>
-                          </div>
+                          <br />
+                          <small>
+                            Revoked:{" "}
+                            {c.revokedAt
+                              ? date(c.revokedAt)
+                              : "Time unavailable"}
+                          </small>
                         </>
                       )}
-                    </>
-                  )}
-                </div>
-              ))}
+                    </p>
+                    {group === "active" && (
+                      <>
+                        {confirm !== c.id ? (
+                          <button
+                            disabled={busy || !!pending || !storageReady}
+                            onClick={() => setConfirm(c.id)}
+                          >
+                            Revoke link {i + 1}
+                            {c.label ? ` — ${c.label}` : ""}
+                          </button>
+                        ) : (
+                          <>
+                            <p>
+                              {c.label && <>Revoke “{c.label}”? </>}
+                              Revoking blocks pending uploads from this link,
+                              including work already saved offline. It cannot
+                              erase a disconnected copy.
+                            </p>
+                            <div className="import-assignment-actions">
+                              <button
+                                disabled={busy || !!pending || !storageReady}
+                                onClick={() =>
+                                  void run({
+                                    action: "revoke",
+                                    assignmentId,
+                                    id: c.id,
+                                    confirmed: true,
+                                  })
+                                }
+                              >
+                                Confirm revoke link {i + 1}
+                                {c.label ? ` — ${c.label}` : ""}
+                              </button>
+                              <button
+                                disabled={busy}
+                                onClick={() => setConfirm(undefined)}
+                              >
+                                Cancel revocation
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ));
+                return group === "active" ? (
+                  <section aria-label="Active links" key={group}>
+                    <h4>Active links</h4>
+                    {entries.length === 0 ? <p>No active links.</p> : rows}
+                  </section>
+                ) : entries.length > 0 ? (
+                  <details key={group}>
+                    <summary>
+                      {group === "revoked" ? "Revoked links" : "Expired links"}{" "}
+                      ({entries.length})
+                    </summary>
+                    {rows}
+                  </details>
+                ) : null;
+              })}
             </>
           )}
           {message && <p role="status">{message}</p>}

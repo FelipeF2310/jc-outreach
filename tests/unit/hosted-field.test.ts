@@ -81,6 +81,12 @@ test("hosted field service rejects raw credentials, forged authority, malformed 
   for (const input of [
     { action: "issue", id, assignmentId: id, token: "x" },
     { action: "issue", id, assignmentId: id, actor: id },
+    ...["", "   ", "x".repeat(101), "bad\nlabel", 12].map((label) => ({
+      action: "issue",
+      id,
+      assignmentId: id,
+      label,
+    })),
     { action: "revoke", id, assignmentId: id },
     { action: "status", assignmentId: id, rows: [] },
   ])

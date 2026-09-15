@@ -131,6 +131,14 @@ The owner reports successful hosted synthetic bootstrap. A separate operator-onl
 - `/api/admin/field` uses provider/allowlist/origin checks. Hosted `/api/assignment` and `/api/operations` require the explicit synthetic deployment, configured origin and a well-formed bearer link; administrator/demo headers never authorize a volunteer request. API responses are no-store and private, with no raw database error logging. The local demo still requires its loopback-only guard.
 - Administrator snapshots show per-assignment received visits/counts and latest received activity, not a claim that an offline device has no pending work. Help/correction queues, completion markers, associated-detail editing and production deletion remain later slices. Migration availability controls whether private-link buttons appear. Localhost links are not a deployable phone URL; HTTPS preview and real-device tests remain required.
 
+## Organizer link labels — 2026-09-15
+
+Additive migration 007 adds a nullable bounded credential label and a five-argument overload of the existing issuance function. The overload reuses the four-argument function's credential/assignment/actor checks and advisory locks, then writes the label in the same transaction. Same ID with a different label rejects rather than silently renaming an issued credential. Legacy four-argument requests and pending actions remain compatible; existing tokens, hashes, assignments, revocation and visit history are unchanged. No existing labels are fabricated during migration.
+
+The private non-login administrator executor gains UPDATE on this one column; runtime table grants stay unchanged. Runtime gains EXECUTE on the exact new overload, recognized by the privilege audit. Public/provider roles have no execution rights. The administrator snapshot adds only label metadata and a readiness flag; field DTOs exclude labels. Before migration, the app keeps the existing unnamed-link workflow and explains that naming needs its database update.
+
+The administrator's pending issuance stores its label alongside its stable ID in session storage for safe retry. The one-time raw credential is still never stored there. Labels are bounded text rendered through React, not HTML; they are organizer assertions, not identity verification or visit attribution. They live on credential rows and expire with the campaign, without a cross-campaign volunteer profile. Rename-existing UI is outside this slice.
+
 ## Reference links
 
 - [Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps)

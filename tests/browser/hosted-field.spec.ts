@@ -43,6 +43,7 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     ],
   };
   const state: FieldSnapshot = {
+    labelsReady: true,
     assignmentId: assignment.id,
     eventEndsAt: assignment.eventEndsAt,
     uploadEndsAt: "2030-10-04T21:00:00Z",
@@ -143,6 +144,7 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
       if (!existing)
         state.credentials.push({
           id: input.id,
+          label: input.label,
           issuedAt: new Date().toISOString(),
           revoked: false,
           revokedAt: null,
@@ -271,6 +273,13 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     await controls
       .getByRole("button", { name: "Volunteer links", exact: true })
       .click();
+    await controls.getByLabel("Volunteer / link name").fill("   ");
+    await expect(
+      controls.getByRole("button", { name: "Generate private link" }),
+    ).toBeDisabled();
+    await controls
+      .getByLabel("Volunteer / link name")
+      .fill("Practice Alex — Saturday");
     await controls
       .getByRole("button", { name: "Generate private link" })
       .click();
@@ -278,6 +287,9 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
       controls.getByRole("button", { name: "Retry pending link action" }),
     ).toBeEnabled();
     await page.reload();
+    await expect(
+      controls.getByLabel("Volunteer / link name"),
+    ).not.toBeVisible();
     await controls
       .getByRole("button", { name: "Retry pending link action" })
       .click();
@@ -285,6 +297,15 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
       controls.getByText(/This link was already created/),
     ).toBeVisible();
     expect(state.credentials).toHaveLength(1);
+    await expect(controls.getByLabel("Volunteer / link name")).toHaveValue(
+      "Practice Alex — Saturday",
+    );
+    await expect(
+      controls.getByText("Practice Alex — Saturday", { exact: true }),
+    ).toBeVisible();
+    await controls
+      .getByLabel("Volunteer / link name")
+      .fill("Practice Blake — Sunday");
     await controls
       .getByRole("button", { name: "Generate private link" })
       .click();
@@ -292,6 +313,10 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
       controls.getByRole("link", { name: "Open volunteer assignment" }),
     ).toBeVisible();
     expect(state.credentials).toHaveLength(2);
+    expect(state.credentials.map((c) => c.label)).toEqual([
+      "Practice Alex — Saturday",
+      "Practice Blake — Sunday",
+    ]);
     expect(
       await page.evaluate(
         (t) =>
@@ -353,6 +378,9 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     await expect(
       controls.getByLabel("Private volunteer link"),
     ).not.toBeVisible();
+    await expect(
+      controls.getByText("Practice Blake — Sunday", { exact: true }),
+    ).toBeVisible();
     const results = page.getByRole("region", {
       name: "Results and follow-up",
       exact: true,
@@ -382,15 +410,58 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     await reopened.getByLabel("No answer", { exact: true }).check();
     await reopened.getByRole("button", { name: "Save & next" }).click();
     await controls
-      .getByRole("button", { name: "Revoke link 2", exact: true })
+      .getByRole("button", {
+        name: "Revoke link 2 — Practice Blake — Sunday",
+        exact: true,
+      })
       .click();
     expect(state.credentials[1].revoked).toBe(false);
     await controls
-      .getByRole("button", { name: "Confirm revoke link 2" })
+      .getByRole("button", {
+        name: "Confirm revoke link 2 — Practice Blake — Sunday",
+        exact: true,
+      })
       .click();
+    const activeLinks = controls.getByRole("region", {
+      name: "Active links",
+      exact: true,
+    });
+    const revokedLinks = controls
+      .locator("details")
+      .filter({ hasText: "Revoked links" });
+    await expect(
+      activeLinks.getByText("Practice Blake — Sunday", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      activeLinks.getByText("Practice Alex — Saturday", { exact: true }),
+    ).toBeVisible();
+    await expect(revokedLinks.locator("summary")).toHaveText(
+      "Revoked links (1)",
+    );
     await expect(
       controls.getByText("Link 2 · Revoked", { exact: false }),
+    ).not.toBeVisible();
+    await revokedLinks.locator("summary").click();
+    await expect(
+      revokedLinks.getByText("Practice Blake — Sunday", { exact: true }),
     ).toBeVisible();
+    await expect(
+      revokedLinks.getByText("Link 2 · Revoked", { exact: false }),
+    ).toBeVisible();
+    await expect(revokedLinks.getByText(/Revoked: /)).toBeVisible();
+    await expect(revokedLinks.getByRole("button")).toHaveCount(0);
+    await expect(revokedLinks.getByRole("link")).toHaveCount(0);
+    await page.reload();
+    await controls
+      .getByRole("button", { name: "Volunteer links", exact: true })
+      .click();
+    await expect(revokedLinks.locator("summary")).toHaveText(
+      "Revoked links (1)",
+    );
+    await expect(
+      controls.getByText("Link 2 · Revoked", { exact: false }),
+    ).not.toBeVisible();
+    await expect(activeLinks.locator(".credential-row")).toHaveCount(1);
     await reopened.getByRole("button", { name: "Sync now" }).click();
     await expect(
       reopened.getByRole("alert").filter({ hasText: /revoked/ }),
@@ -399,6 +470,71 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     await expect(
       reopened.getByText("1 waiting to sync", { exact: true }),
     ).toBeVisible();
+    // An existing unnamed link retains its original number after grouping.
+    state.credentials[0].label = null;
+    state.eventEndsAt = "2020-01-01T00:00:00Z";
+    await controls.getByRole("button", { name: "Refresh links" }).click();
+    await expect(
+      activeLinks.getByText("Link 1 · Upload only", { exact: false }),
+    ).toBeVisible();
+    state.uploadEndsAt = "2020-01-04T00:00:00Z";
+    await controls.getByRole("button", { name: "Refresh links" }).click();
+    await expect(
+      activeLinks.getByText("No active links.", { exact: true }),
+    ).toBeVisible();
+    const expiredLinks = controls
+      .locator("details")
+      .filter({ hasText: "Expired links" });
+    await expect(expiredLinks.locator("summary")).toHaveText(
+      "Expired links (1)",
+    );
+    await expiredLinks.locator("summary").click();
+    await expect(
+      expiredLinks.getByText("Link 1 · Expired", { exact: false }),
+    ).toBeVisible();
+    await expect(expiredLinks.getByRole("button")).toHaveCount(0);
+    await expect(revokedLinks.locator("summary")).toHaveText(
+      "Revoked links (1)",
+    );
+
+    // Simulate another administrator revoking a link still displayed in this tab.
+    state.eventEndsAt = assignment.eventEndsAt;
+    state.uploadEndsAt = "2030-10-04T21:00:00Z";
+    await controls.getByRole("button", { name: "Refresh links" }).click();
+    await expect(activeLinks.locator(".credential-row")).toHaveCount(1);
+    await controls.getByLabel("Volunteer / link name").fill("Practice Casey");
+    await controls
+      .getByRole("button", { name: "Generate private link" })
+      .click();
+    await expect(controls.getByLabel("Private volunteer link")).toBeVisible();
+    for (const credential of state.credentials) {
+      credential.revoked = true;
+      credential.revokedAt ??= new Date().toISOString();
+    }
+    await controls.getByRole("button", { name: "Refresh links" }).click();
+    await expect(
+      activeLinks.getByText("No active links.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      controls.getByLabel("Private volunteer link"),
+    ).not.toBeVisible();
+    await expect(
+      controls.getByRole("link", { name: "Open volunteer assignment" }),
+    ).toHaveCount(0);
+    await expect(
+      controls.getByRole("button", { name: "Copy private link" }),
+    ).toHaveCount(0);
+    await expect(revokedLinks.locator("summary")).toHaveText(
+      "Revoked links (3)",
+    );
+    expect(state.visits).toHaveLength(1);
+    await revokedLinks.locator("summary").click();
+    await expect(
+      revokedLinks.getByText("Link 1 · Revoked", { exact: false }),
+    ).toBeVisible();
+    await controls.screenshot({
+      path: `test-results/revoked-links-${test.info().project.name}.png`,
+    });
   } finally {
     proxy.closeAllConnections();
     await new Promise<void>((resolve) => proxy.close(() => resolve()));

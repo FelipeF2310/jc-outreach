@@ -131,8 +131,16 @@ export async function hostedFieldAdmin(
     if (request.action === "issue") {
       const candidate = randomBytes(32).toString("base64url");
       const result = await tx.query<{ created: boolean }>(
-        "SELECT outreach.issue_field_credential($1,$2,$3,$4) AS created",
-        [request.id, request.assignmentId, hashToken(candidate), actor],
+        request.label === undefined
+          ? "SELECT outreach.issue_field_credential($1,$2,$3,$4) AS created"
+          : "SELECT outreach.issue_field_credential($1,$2,$3,$4,$5) AS created",
+        [
+          request.id,
+          request.assignmentId,
+          hashToken(candidate),
+          actor,
+          ...(request.label === undefined ? [] : [request.label]),
+        ],
       );
       if (result.rows[0]?.created) token = candidate;
     } else if (request.action === "revoke") {

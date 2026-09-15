@@ -7,6 +7,13 @@ export const fieldAdminRequest = z.discriminatedUnion("action", [
     action: z.literal("issue"),
     assignmentId: z.uuid(),
     id: z.uuid(),
+    label: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .regex(/^[^\u0000-\u001f\u007f]+$/)
+      .optional(),
   }),
   z.strictObject({
     action: z.literal("revoke"),
@@ -17,12 +24,14 @@ export const fieldAdminRequest = z.discriminatedUnion("action", [
 ]);
 export type FieldAdminRequest = z.infer<typeof fieldAdminRequest>;
 export type FieldSnapshot = {
+  labelsReady?: boolean;
   assignmentId: string;
   eventEndsAt: string;
   uploadEndsAt: string;
   deletionAt: string;
   credentials: {
     id: string;
+    label?: string | null;
     issuedAt: string;
     revoked: boolean;
     revokedAt: string | null;
