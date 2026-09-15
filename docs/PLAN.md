@@ -322,6 +322,16 @@ The owner reported migration 008 success from the run starting at 21:41:41 UTC. 
 
 The next owner walkthrough is a new synthetic conversation requesting application help without a phone, synchronization, then administrator New → In progress → Resolved changes with reload checks. This live mutation/UI evidence is still pending; the migration/read checks do not close C09 or physical-phone/production launch gates.
 
+## Owner-confirmed application-help walkthrough — 2026-09-15
+
+On the local application implementation checkpoint fc51a21 backed by live Supabase, the owner reopened the saved volunteer assignment and created a new synthetic Unit 10B visit: Spoke with resident, Wants application help, no phone. Synchronization reported All records received with three cumulative received visits. The administrator queue showed New, Requesting resident not specified, and No phone number provided for follow-up. Both In progress and Resolved persisted after full page reloads; the final queue showed zero open, one resolved, with the request under Resolved requests.
+
+Results showed one conversation, one application-help request, one repeat visit and three total received visits. These counts match the two earlier No answer visits plus this new conversation; the status changes did not create additional visits. This is owner-reported live happy-path evidence, not independent browser inspection, physical-phone/offline acceptance or live failure-path/expiry coverage. C09 retains those distinctions.
+
+The owner noted the earlier volunteer link was no longer displayed on the administrator page, but reopening the volunteer page recovered the saved assignment. Raw link copy/open controls are intentionally one-time because the server stores a token hash; disappearance of the issued-link metadata row would be a separate issue and is not established by this report. No credential was reissued or revoked to record this result.
+
+Next planned implementation is basic correction review using the existing Results & follow-up design language, then remaining assignment lifecycle and completion reporting. This confirmation changes documentation only; no application/database mutations, deployment or push were performed, and application suites were not rerun.
+
 ## Information required for production configuration
 
 Administrator email allowlist; access to hosting/database accounts; approved program content and required languages; actual campaign/event dates; and the approved Tier 1/2 import artifact. Obtain these only when needed. Do not request credentials in chat or search unrelated local files for secrets.

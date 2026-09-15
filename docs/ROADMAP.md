@@ -8,7 +8,7 @@ Administrator sign-in, restricted Supabase access, campaign creation/reload, syn
 
 ## Next milestone
 
-The administrator usability pass and live field-loop happy path are complete. The basic application-help queue is implemented in Results & follow-up; migration 008 is applied and independent restricted-account capability/read verification passed at 21:43:09 UTC on 2026-09-15. All three active synthetic campaigns could be read; there were no received help requests yet. Next: synchronize a synthetic request without a phone, move it from New to In progress to Resolved, and reload to confirm persistence. Follow with correction review, assignment lifecycle and completion reporting. Continue remaining live negative/offline checks without conflating them with the happy-path confirmation.
+The administrator usability pass, live field-loop happy path and basic application-help walkthrough are complete. Migration 008 is applied and independent restricted-account capability/read verification passed at 21:43:09 UTC on 2026-09-15. The owner subsequently confirmed a new synthetic Unit 10B conversation requesting help without a phone, synchronization, New → In progress → Resolved with reload persistence, and resolved-list placement. Cumulative results were three visits, one conversation, one help request and one repeat visit. Next: basic correction review, followed by assignment lifecycle and completion reporting. Continue remaining live negative/offline checks without conflating them with the happy-path confirmation.
 
 Keep this workflow working throughout: an administrator selects imported household doors, assigns them to a volunteer for an event, issues a private link, and receives synchronized results.
 
