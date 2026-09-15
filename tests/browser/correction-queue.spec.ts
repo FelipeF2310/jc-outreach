@@ -1,23 +1,30 @@
 import { test, expect } from "@playwright/test";
-import type { HelpQueue, HelpUpdate } from "../../src/lib/help-admin-contracts";
+import type {
+  CorrectionQueue,
+  CorrectionUpdate,
+} from "../../src/lib/correction-admin-contracts";
 
-test("campaign help queue preserves pending updates, handles conflicts and groups resolved requests (mock transport)", async ({
+test("campaign correction queue preserves pending updates, handles conflicts and groups reviewed reports (mock transport)", async ({
   page,
 }) => {
   const id = (n: number) =>
     `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-  const queue: HelpQueue = { campaignId: id(1), ready: false, requests: [] };
+  const queue: CorrectionQueue = {
+    campaignId: id(1),
+    ready: false,
+    reports: [],
+  };
   const receipts = new Map<
     string,
     {
       id: string;
       campaignId: string;
-      requestId: string;
+      reportId: string;
       status: string;
       version: number;
     }
   >();
-  const calls: HelpUpdate[] = [];
+  const calls: CorrectionUpdate[] = [];
   let failRead = false,
     lostAck = true,
     conflict = false,
@@ -34,7 +41,7 @@ test("campaign help queue preserves pending updates, handles conflicts and group
           campaigns: [
             {
               id: id(1),
-              name: "Synthetic: Help queue",
+              name: "Synthetic: Correction queue",
               endAt: "2030-10-12T03:59:59Z",
               deletionAt: "2030-11-11T04:59:59Z",
               importReady: true,
@@ -63,17 +70,17 @@ test("campaign help queue preserves pending updates, handles conflicts and group
           },
         },
       });
-    if (path.endsWith("/corrections"))
+    if (path.endsWith("/help"))
       return route.fulfill({
         json: {
           queue: {
             campaignId: route.request().postDataJSON().campaignId,
             ready: false,
-            reports: [],
+            requests: [],
           },
         },
       });
-    expect(path).toBe("/api/admin/help");
+    expect(path).toBe("/api/admin/corrections");
     const input = route.request().postDataJSON();
     expect(input.campaignId).toBe(id(1));
     if (input.action === "list") {
@@ -85,16 +92,16 @@ test("campaign help queue preserves pending updates, handles conflicts and group
       if (failRead)
         return route.fulfill({
           status: 503,
-          json: { error: "Help queue temporarily unavailable." },
+          json: { error: "Correction queue temporarily unavailable." },
         });
       return route.fulfill({ json: { queue } });
     }
     expect(input.action).toBe("update");
     calls.push(input);
-    const request = queue.requests.find((r) => r.id === input.requestId)!;
+    const request = queue.reports.find((r) => r.id === input.reportId)!;
     if (conflict) {
       conflict = false;
-      request.status = "Resolved";
+      request.status = "Reviewed";
       request.version++;
       return route.fulfill({
         status: 409,
@@ -111,7 +118,7 @@ test("campaign help queue preserves pending updates, handles conflicts and group
       receipts.set(input.id, {
         id: input.id,
         campaignId: id(1),
-        requestId: request.id,
+        reportId: request.id,
         status: request.status,
         version: request.version,
       });
@@ -127,30 +134,28 @@ test("campaign help queue preserves pending updates, handles conflicts and group
   });
   await page.goto("/admin");
   const help = page.getByRole("region", {
-    name: "Application-help requests",
+    name: "Resident correction reports",
     exact: true,
   });
   await expect(help.getByText(/needs its database update/)).toBeVisible();
   queue.ready = true;
   await help
-    .getByRole("button", { name: "Refresh help requests", exact: true })
+    .getByRole("button", { name: "Refresh correction reports", exact: true })
     .click();
   await expect(
-    help.getByText(/No application-help requests received yet/),
+    help.getByText(/No correction reports received yet/),
   ).toBeVisible();
-  queue.requests.push(
+  queue.reports.push(
     {
       id: id(3),
       visitId: id(4),
       assignmentName: "Practice Volunteer A",
       address: "100 FIXTURE WALK",
       unit: "2A",
-      requester: null,
-      phone: "",
-      consent: false,
-      arrangement: "return",
+      person: null,
+      kind: "rents",
       suppressed: false,
-      status: "New",
+      status: "Open",
       version: 0,
       receivedAt: "2026-09-15T21:12:48Z",
       updatedAt: null,
@@ -161,37 +166,38 @@ test("campaign help queue preserves pending updates, handles conflicts and group
       assignmentName: "Practice Volunteer B",
       address: "100 FIXTURE WALK",
       unit: "10B",
-      requester: "Resident B Fixture",
-      phone: "201-555-0100",
-      consent: true,
-      arrangement: "unspecified",
+      person: "Resident B Fixture",
+      kind: "moved",
       suppressed: true,
-      status: "In progress",
-      version: 1,
+      status: "Open",
+      version: 0,
       receivedAt: "2026-09-15T21:15:48Z",
       updatedAt: null,
     },
   );
   await help
-    .getByRole("button", { name: "Refresh help requests", exact: true })
+    .getByRole("button", { name: "Refresh correction reports", exact: true })
     .click();
   const first = help.getByRole("article", {
-    name: "Help request for 100 FIXTURE WALK Unit 2A",
+    name: "Correction report for 100 FIXTURE WALK Unit 2A",
     exact: true,
   });
   const second = help.getByRole("article", {
-    name: "Help request for 100 FIXTURE WALK Unit 10B",
+    name: "Correction report for 100 FIXTURE WALK Unit 10B",
     exact: true,
   });
+  await expect(first.getByText("Household-level report")).toBeVisible();
   await expect(
-    first.getByText("No phone number provided for follow-up."),
+    first.getByText("Reported: Says they rent", { exact: true }),
   ).toBeVisible();
   await expect(
-    first.getByText("Requesting resident not specified"),
+    second.getByText("Resident B Fixture", { exact: true }),
   ).toBeVisible();
-  await expect(first.getByText("Return visit requested")).toBeVisible();
   await expect(
-    second.getByText(/Permission recorded for application-help follow-up/),
+    second.getByText("Reported: Person moved", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    help.getByText(/does not verify the report or change imported records/),
   ).toBeVisible();
   await expect(
     second.getByText(/do-not-contact request recorded/),
@@ -212,18 +218,18 @@ test("campaign help queue preserves pending updates, handles conflicts and group
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await help.screenshot({
-    path: `test-results/help-queue-${test.info().project.name}.png`,
+    path: `test-results/correction-queue-${test.info().project.name}.png`,
   });
   failRead = true;
   await help
-    .getByRole("button", { name: "Refresh help requests", exact: true })
+    .getByRole("button", { name: "Refresh correction reports", exact: true })
     .click();
   await expect(help.getByRole("alert")).toContainText(
-    "Previously loaded requests may be out of date",
+    "Previously loaded reports may be out of date",
   );
   failRead = false;
   await help
-    .getByRole("button", { name: "Retry help requests", exact: true })
+    .getByRole("button", { name: "Retry correction reports", exact: true })
     .click();
   await page.evaluate(() => {
     Storage.prototype.setItem = function () {
@@ -231,7 +237,7 @@ test("campaign help queue preserves pending updates, handles conflicts and group
     };
   });
   await first
-    .getByRole("button", { name: "Mark in progress", exact: true })
+    .getByRole("button", { name: "Mark reviewed", exact: true })
     .click();
   await expect(help.getByRole("alert")).toContainText(
     "Synthetic storage write failed",
@@ -239,10 +245,10 @@ test("campaign help queue preserves pending updates, handles conflicts and group
   expect(calls).toHaveLength(0);
   await page.reload();
   await expect(
-    first.getByRole("button", { name: "Mark in progress", exact: true }),
+    first.getByRole("button", { name: "Mark reviewed", exact: true }),
   ).toBeEnabled();
   await first
-    .getByRole("button", { name: "Mark in progress", exact: true })
+    .getByRole("button", { name: "Mark reviewed", exact: true })
     .click();
   await expect(
     help.getByRole("button", { name: "Retry pending status update" }),
@@ -251,14 +257,15 @@ test("campaign help queue preserves pending updates, handles conflicts and group
   expect(
     await page.evaluate(() =>
       JSON.stringify({ ...localStorage, ...sessionStorage }).includes(
-        "201-555-0100",
+        "Resident B Fixture",
       ),
     ),
   ).toBe(false);
   await page.reload();
-  await expect(first.getByText("In progress", { exact: true })).toBeVisible();
+  await help.getByText("Reviewed reports (1)", { exact: true }).click();
+  await expect(first.getByText("Reviewed", { exact: true })).toBeVisible();
   await expect(
-    first.getByRole("button", { name: "Mark resolved", exact: true }),
+    first.getByRole("button", { name: "Keep open", exact: true }),
   ).toBeDisabled();
   await help
     .getByRole("button", { name: "Retry pending status update" })
@@ -269,48 +276,55 @@ test("campaign help queue preserves pending updates, handles conflicts and group
     help.getByRole("status").filter({ hasText: "Status update received" }),
   ).toBeFocused();
   await expect(
-    first.getByRole("button", { name: "Mark resolved", exact: true }),
+    first.getByRole("button", { name: "Keep open", exact: true }),
   ).toBeEnabled();
   await first
-    .getByRole("button", { name: "Mark resolved", exact: true })
+    .getByRole("button", { name: "Keep open", exact: true })
+    .press("Enter");
+  await expect(first.getByText("Open", { exact: true })).toBeVisible();
+  await expect(
+    help.getByRole("status").filter({ hasText: "Status update received" }),
+  ).toBeFocused();
+  await expect(
+    first.getByRole("button", { name: "Mark reviewed", exact: true }),
+  ).toBeEnabled();
+  await first
+    .getByRole("button", { name: "Mark reviewed", exact: true })
     .press("Enter");
   await expect(
-    help.getByText("Resolved requests (1)", { exact: true }),
+    help.getByText("Reviewed reports (1)", { exact: true }),
   ).toBeVisible();
   await expect(first).not.toBeVisible();
   await expect(
     help.getByRole("status").filter({ hasText: "Status update received" }),
   ).toBeFocused();
-  await help.getByText("Resolved requests (1)", { exact: true }).click();
-  await expect(first.getByText("Resolved", { exact: true })).toBeVisible();
-  await expect(first.getByRole("button")).toHaveCount(0);
   conflict = true;
   await second
-    .getByRole("button", { name: "Mark resolved", exact: true })
+    .getByRole("button", { name: "Mark reviewed", exact: true })
     .click();
   await expect(help.getByRole("alert")).toContainText("This request changed");
   await expect(
-    second.getByRole("button", { name: "Mark resolved", exact: true }),
+    second.getByRole("button", { name: "Mark reviewed", exact: true }),
   ).toBeDisabled();
   await help
-    .getByRole("button", { name: "Retry help requests", exact: true })
+    .getByRole("button", { name: "Retry correction reports", exact: true })
     .click();
   await expect(
-    help.getByText("No open help requests.", { exact: true }),
+    help.getByText("No open correction reports.", { exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    help.getByText("Resolved requests (2)", { exact: true }),
+    help.getByText("Reviewed reports (2)", { exact: true }),
   ).toBeVisible();
   await expect(first).not.toBeVisible();
   denyRead = true;
   await help
-    .getByRole("button", { name: "Refresh help requests", exact: true })
+    .getByRole("button", { name: "Refresh correction reports", exact: true })
     .click();
   await expect(help.getByRole("alert")).toContainText(
     "Administrator access unavailable",
   );
   await expect(
-    help.getByText("Resolved requests (2)", { exact: true }),
+    help.getByText("Reviewed reports (2)", { exact: true }),
   ).toHaveCount(0);
 });

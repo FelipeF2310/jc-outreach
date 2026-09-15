@@ -100,6 +100,16 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
       expect(input).toEqual({ action: "workspace", campaignId: id(1) });
       return route.fulfill({ json: { workspace } });
     }
+    if (path.endsWith("/corrections"))
+      return route.fulfill({
+        json: {
+          queue: {
+            campaignId: route.request().postDataJSON().campaignId,
+            ready: false,
+            reports: [],
+          },
+        },
+      });
     expect(path).toBe("/api/admin/field");
     if (input.action !== "status") mutations++;
     expect(input.action).toBe("status");
@@ -171,9 +181,7 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
     ),
   ).toBeVisible();
   await expect(
-    results.getByText(
-      /administrator correction-review queue is not connected yet/,
-    ),
+    results.getByText(/Resident correction review needs its database update/),
   ).toBeVisible();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });

@@ -12,6 +12,8 @@ The administrator usability pass, live field-loop happy path and basic applicati
 
 Keep this workflow working throughout: an administrator selects imported household doors, assigns them to a volunteer for an event, issues a private link, and receives synchronized results.
 
+Current correction-review slice: implemented locally with Open/Reviewed states, safe retries and no source-record edits; migration 009 and its live walkthrough remain pending. After local verification, apply the reviewed additive update, verify restricted capabilities, and test one person-specific synthetic correction through review/reload/reopening. The owner has the CSV available; it has not been requested, inspected or imported. Start eventual approved-file review with headers and de-identified examples outside source control.
+
 Owner-requested addition: saved names for newly issued volunteer links are implemented; migration 007 succeeded and the independent restricted-runtime capability audit passed at 21:10:06 UTC on 2026-09-15. Named issuance and use are owner-confirmed; explicit label persistence across browser reload remains a separate check. Preserve existing unnamed links and distinguish organizer labels from verified identity. The final Household list will include approved CSV selection/upload and validation/confirmation; it remains disabled while the source-safety launch checks are open.
 
 Deliver this in independently testable slices:

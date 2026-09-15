@@ -18,6 +18,7 @@ import { importAdministratorExample } from "../../src/server/admin-imports";
 import { prepareAdministratorAssignment } from "../../src/server/admin-assignments";
 import { manageAdministratorField } from "../../src/server/admin-field";
 import { manageAdministratorHelp } from "../../src/server/admin-help";
+import { manageAdministratorCorrection } from "../../src/server/admin-corrections";
 import type { Database } from "../../src/server/db-contract";
 
 const config: AdminConfig = {
@@ -326,6 +327,83 @@ test("missing database configuration explains setup only after authorization and
   assert.equal(response.headers.getSetCookie().length, 0);
   assert.match(response.headers.get("cache-control")!, /no-store/);
 });
+test("correction queue requires administrator verification and takes status actor only from the provider", async () => {
+  let opened = 0;
+  let updateParameters: unknown[] | undefined;
+  const db: Database = {
+    async query<T>(sql: string, params?: unknown[]) {
+      if (sql.includes("update_correction_status($1")) {
+        updateParameters = params;
+        return { rows: [] };
+      }
+      return {
+        rows: [
+          { stage: "synthetic-preview", role: "jco_admin_reader", ready: true },
+        ] as T[],
+      };
+    },
+    async exec() {},
+    async transaction(work) {
+      return work(db);
+    },
+  };
+  const database = () => {
+    opened++;
+    return db;
+  };
+  const input = {
+    action: "update",
+    id: user.id,
+    campaignId: user.id,
+    reportId: user.id,
+    expectedVersion: 0,
+    status: "Reviewed",
+  };
+  for (const [req, fake, status] of [
+    [request(input), provider(), 401],
+    [
+      request(input, cookie()),
+      provider({ email: "unapproved@example.test" }),
+      403,
+    ],
+    [
+      new NextRequest(`${config.origin}/api/admin/corrections`, {
+        method: "POST",
+        headers: {
+          Origin: "https://untrusted.example.test",
+          "X-JCO-Admin": "1",
+          Cookie: cookie(),
+        },
+      }),
+      provider(),
+      403,
+    ],
+  ] as const) {
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => manageAdministratorCorrection(req, ctx, cfg, database),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, status);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+  }
+  assert.equal(opened, 0);
+  const req = request(input, cookie());
+  await adminEndpoint(
+    req,
+    (ctx, cfg) => manageAdministratorCorrection(req, ctx, cfg, database),
+    { config, fetcher: provider().fetcher },
+  );
+  assert.deepEqual(updateParameters, [
+    input.id,
+    input.campaignId,
+    input.reportId,
+    0,
+    "Reviewed",
+    user.id,
+  ]);
+});
+
 test("help queue requires administrator verification and takes status actor only from the provider", async () => {
   let opened = 0;
   let updateParameters: unknown[] | undefined;

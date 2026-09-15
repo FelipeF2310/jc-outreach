@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, and now the named-link/download/save/sync/admin-result happy path on 2026-09-15. Migrations 006–007 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: basic application-help administration is the next implementation slice. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from these successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–008 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: correction review is implemented locally with migration 009/live verification pending; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
 ## Prepared
 
@@ -331,6 +331,20 @@ Results showed one conversation, one application-help request, one repeat visit 
 The owner noted the earlier volunteer link was no longer displayed on the administrator page, but reopening the volunteer page recovered the saved assignment. Raw link copy/open controls are intentionally one-time because the server stores a token hash; disappearance of the issued-link metadata row would be a separate issue and is not established by this report. No credential was reissued or revoked to record this result.
 
 Next planned implementation is basic correction review using the existing Results & follow-up design language, then remaining assignment lifecycle and completion reporting. This confirmation changes documentation only; no application/database mutations, deployment or push were performed, and application suites were not rerun.
+
+## Resident correction review implementation — 2026-09-15
+
+The owner authorized continuing with correction review and mentioned an available CSV. No real file was requested, opened or imported; eventual source review starts with approved headers and de-identified representative examples, outside source control. The current real-data/ingress boundary remains closed.
+
+Implemented a campaign-wide Resident corrections queue within Results & follow-up using the existing follow-up cards, typography, colors, disclosures, spacing and keyboard confirmation focus. Reports show the actual affected person or explicit household-level scope, reported issue, assignment/source visit, received time and suppression warning. Open reports are primary; Reviewed reports are collapsed. Mark reviewed / Keep open change review metadata only, not report content, source people/households, eligibility or suppression.
+
+The new administrator route uses verified provider identity, allowlist/origin checks, strict bounded contracts and private/no-store responses. Additive 009 introduces review versions/update time and cascading audit receipts. A non-login executor and two narrowly granted functions enforce campaign scope/lifetime, action-ID/actor/content matching, row-locked versions and atomic audit/status updates. Runtime direct table access stays denied; applied migrations 002–008 are unchanged. No hosted update has run.
+
+Native tests exercise non-superuser migration/replay with pre-existing reports, person/household scope, all four report kinds, unchanged downloaded people/households, competing updates, identical retry, changed actor/content rejection, old receipt replay after reopening, field replay/revision preservation, late audit failure rollback, direct/provider privilege denial and expiration/cascade. Browser tests cover missing migration, empty/populated views, reported-not-verified copy, source details, suppression, 320/390/1280px layout, storage/read failures, pending save/reload/retry, keyboard focus, reopening, conflicts and permission loss. Administrator transport is mocked in browser tests; PostgreSQL tests use an isolated local cluster, not Supabase.
+
+Final verification: 72 unit/server tests, 11 isolated native PostgreSQL tests and all 40 Chromium/WebKit browser tests pass (123 total). Production build, strict type checking, formatting and whitespace checks pass; the helper passes zsh syntax validation and remains ignored. Inspected the synthetic WebKit phone screenshot; the existing visual language is unchanged. Initial browser failures came from the old unavailable-feature assertion and an exact-text assertion missing the visible Reported prefix; corrected those assertions and reran the full suite with no skips. No new dependencies, deployment or GitHub push.
+
+The ignored executable CORRECTION-UPDATE helper uses the existing hidden owner-password/verified-TLS path; no owner secret is saved or logged. The next live step requires the owner's operator input, then independent read-only capability checks and a synthetic person-specific report/review/reload/reopen walkthrough. This does not close production, physical-phone or scheduled-deletion gates.
 
 ## Information required for production configuration
 

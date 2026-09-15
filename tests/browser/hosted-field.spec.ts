@@ -147,6 +147,16 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
           },
         },
       });
+    if (path.endsWith("/corrections"))
+      return route.fulfill({
+        json: {
+          queue: {
+            campaignId: route.request().postDataJSON().campaignId,
+            ready: false,
+            reports: [],
+          },
+        },
+      });
     expect(path).toBe("/api/admin/field");
     const input = route.request().postDataJSON();
     if (input.action === "issue") {

@@ -4,6 +4,7 @@ import type { FieldSnapshot } from "@/lib/field-admin-contracts";
 import type { AssignmentWorkspace } from "@/lib/assignment-admin-contracts";
 import { outcomes } from "@/lib/contracts";
 import { HelpRequestQueue } from "./help-request-queue";
+import { CorrectionReviewQueue } from "./correction-review-queue";
 
 export function CampaignResults({
   campaignId,
@@ -73,13 +74,14 @@ export function CampaignResults({
           deletionAt={deletionAt}
         />
       )}
-      <div className="follow-up-notice">
-        <h3>Resident corrections</h3>
-        <p className="fine">
-          Volunteers can record corrections. The administrator correction-review
-          queue is not connected yet.
-        </p>
-      </div>
+      {ready && (
+        <CorrectionReviewQueue
+          key={`corrections:${administratorId}:${campaignId}`}
+          campaignId={campaignId}
+          administratorId={administratorId}
+          deletionAt={deletionAt}
+        />
+      )}
     </section>
   );
 }

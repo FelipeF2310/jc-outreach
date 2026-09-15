@@ -149,6 +149,16 @@ Updates lock the action ID and request row, check campaign lifetime/request scop
 
 Administrator session storage retains only a pending update's IDs/version/status, scoped to administrator/campaign and bounded by campaign deletion; no names, addresses, phones or queue snapshots are persisted there. Reads ignore obsolete/unmounted results; unknown mutation results freeze further updates until retry; permanent validation/conflict failures require refresh. No successful status confirmation is shown until a matching receipt arrives. Resolved cards/source metadata use existing disclosure patterns, colors and spacing; requests without a phone remain actionable. No offline administrator workflow, task ownership, arbitrary editing/reopening, notifications or correction management is added.
 
+## Resident correction review — 2026-09-15
+
+`POST /api/admin/corrections` uses the existing provider/allowlist/origin boundary and strict list/update contracts; the verified provider identity supplies the actor. The explicit campaign queue contains report kind, affected person when present, address/unit, assignment/source visit, received time, suppression and review metadata. It contains no phone numbers, source matching fields or credential secrets.
+
+Additive 009 gives existing reports Open status and adds version/update metadata plus a cascading append-only correction-status audit table. A private non-login executor can read only the necessary tables, update only status/version/update time and append audit rows. The runtime gains exactly two function capabilities, no direct table access or role membership. The reviewed-status action cannot edit person IDs, report kinds, imported records or suppression. PUBLIC/provider execution is denied; RLS, fixed search paths, scoped joins and lifetime checks remain required.
+
+Open → Reviewed and Reviewed → Open are version-checked under a report-row lock. A stable action ID and actor/content matching make retries idempotent; retrying an older action returns its receipt without regressing current status. Same-status/stale updates reject. Status and audit commit atomically. Field replay/contact-result revisions leave review metadata intact. Review means seen, not verified; eligibility and automated reconciliation remain out of scope.
+
+The UI reuses existing follow-up cards, disclosures, spacing and focus-confirmation behavior. Only pending action IDs/version/status are stored per administrator/campaign in session storage, never report contents or names. Unknown save results freeze edits until retry; rejected conflicts require refresh; permission loss clears the queue. Reviewed reports remain collapsed, and source details are secondary. This is not offline administrator editing or a change to the volunteer outbox. Retention still requires the separately pending deletion scheduler.
+
 ## Reference links
 
 - [Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps)
