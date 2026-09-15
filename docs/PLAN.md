@@ -263,6 +263,12 @@ Regression checks cover immediate grouping after acknowledgment, reload, named a
 
 Final verification for the presentation fix: all 36 browser tests pass, along with the production build, strict type check, formatting and whitespace checks. Inspected the synthetic WebKit phone screenshot. The local app was restarted on port 3000 with the tested build; the PRD checksum is unchanged. Native database/unit suites were not rerun for this frontend-only follow-up; their earlier naming-slice evidence remains above. No hosted migration, data mutation, deployment or push occurred.
 
+## Hosted link-label update verified — 2026-09-15
+
+The owner supplied successful LABEL-UPDATE output: owner authentication/verified TLS passed, 007 completed, existing links/assignments/visits/passwords were preserved, and no links were issued or revoked. Independent verification at 21:10:06 UTC used the saved restricted account in a READ ONLY transaction. The reviewed privilege audit passed; three active synthetic campaigns remained; the five-argument issuance function existed and was executable. No credentials, names, resident records or private URLs were printed. Treat 007 as applied and immutable.
+
+Next: refresh the administrator workspace, issue a named practice link for the existing assignment, open/download it, confirm the label survives administrator refresh, save one synthetic visit, synchronize, and verify the received result. This audit does not close C07 or physical-phone/HTTPS acceptance. Only status documentation changed; no application suites were rerun and no hosted mutations, deployment or push were performed by the verification.
+
 ## One-time PRD revision record
 
 Checkpoint note (2026-09-15): reviewed the accumulated campaign/import source and tests, staged only project source/docs/configuration, and scanned staged paths plus secret-key patterns. Operational files and credentials remain ignored and unstaged. The staged whitespace check reports one trailing blank line in already-applied migration 004; preserve its exact bytes/checksum rather than editing an applied migration for formatting. This exception has no SQL semantic effect. No GitHub push or deployment is included in the local checkpoint.

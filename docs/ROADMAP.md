@@ -12,7 +12,7 @@ The owner requested a usability pass before resuming the live field-loop test: o
 
 An administrator selects three imported household doors, assigns them to a volunteer for an event, issues one private link, and receives that volunteer's synchronized results.
 
-Owner-requested addition: saved names for newly issued volunteer links are implemented locally; migration 007 and hosted label verification remain pending. Preserve existing unnamed links and distinguish organizer labels from verified identity. The final Household list will include approved CSV selection/upload and validation/confirmation; it remains disabled while the source-safety launch checks are open.
+Owner-requested addition: saved names for newly issued volunteer links are implemented; migration 007 succeeded and the independent restricted-runtime capability audit passed at 21:10:06 UTC on 2026-09-15. Live named issuance/reload and field-loop verification are next. Preserve existing unnamed links and distinguish organizer labels from verified identity. The final Household list will include approved CSV selection/upload and validation/confirmation; it remains disabled while the source-safety launch checks are open.
 
 Deliver this in independently testable slices:
 

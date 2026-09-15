@@ -121,7 +121,9 @@ After owner-confirmed success, verify the runtime audit/function capabilities re
 
 Lost issuance acknowledgment: retry uses the same credential ID and creates no second link. Since the raw secret is not retained, a retry of an already-committed issuance returns an explanation rather than inventing a recoverable token. Administrators may issue another link and separately revoke an unneeded one; issuance never implicitly revokes existing access. Explicit revocation requires confirmation because it blocks even previously saved uploads. Reconnection cannot remotely erase a browser that remains offline. Live revocation, expiry, HTTPS/logging and physical-phone gates remain required.
 
-### Additive link-label update 007 — prepared, not applied
+### Additive link-label update 007 — applied and capability verified
+
+The owner reported successful LABEL-UPDATE on 2026-09-15, with verified TLS and preserved links, assignments, visits and passwords. Independent verification at 21:10:06 UTC used a READ ONLY transaction and the saved restricted runtime: the reviewed privilege audit passed, three active synthetic campaigns remained, and the new five-argument issuance function existed and was executable. This confirms setup, not a completed named issuance/visit/sync test. Migrations 002–007 are now applied and immutable. Do not rerun initialization or this update; the procedure below is historical reference.
 
 The ignored `private/update-link-labels.command` requires **LABEL-UPDATE**, then the existing hidden database-owner password (not the reader password). It runs `scripts/migrate-field.ts --password-stdin --link-labels`, checks the synthetic marker and prior migration checksums, and applies 007 under the existing migration lock in one transaction. Verified TLS and sanitized stage/category output remain required. No passwords, existing link tokens, visit records or assignments change; no links are issued/revoked and no database reset is performed.
 
