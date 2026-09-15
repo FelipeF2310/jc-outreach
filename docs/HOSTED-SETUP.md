@@ -1,6 +1,6 @@
 # Hosted synthetic-preview setup
 
-This is an operator handoff, not a record of completed deployment. Administrator sign-in, synthetic initialization, reader setup, campaign creation/reload, import use and event/building-run assignment save/reload are confirmed. Migrations 003–006 are applied. The owner's field update started at 20:04:57 UTC on 2026-09-15; independent read-only verification at 20:07:56 UTC passed the restricted-runtime privilege audit and all five field-function capability checks. The live private-link/download/visit/sync/results workflow remains pending. Historical procedures below are not instructions to rerun completed updates. Resident data remains prohibited until the entire [acceptance gate](ACCEPTANCE.md) passes.
+This is an operator handoff, not a record of completed deployment. Administrator sign-in, synthetic initialization, reader setup, campaign creation/reload, import use and event/building-run assignment save/reload are confirmed. Migrations 003–007 are applied; restricted-runtime checks passed. The owner confirmed the live named-link/download/visit/sync/results happy path on 2026-09-15, with a new Unit 10B visit received at 5:12:48 PM EDT. Two cumulative visits include an earlier Unit 2A record. Disconnected-browser, physical-phone and remaining lifecycle checks are still required. Historical procedures below are not instructions to rerun completed updates. Resident data remains prohibited until the entire [acceptance gate](ACCEPTANCE.md) passes.
 
 ## Modes and boundaries
 

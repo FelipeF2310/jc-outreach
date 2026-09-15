@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-The owner confirmed live campaign creation/reload and synthetic import use, then event/building-run assignment save/reload after migration 005. [ROADMAP.md](ROADMAP.md) records the agreed sequence and engineering commitments. Hosted private-link/download/submission/results are implemented; migration 006 and independent restricted-runtime checks passed on 2026-09-15. The owner's live end-to-end field check remains pending. Hosted manual-order/competing-save acceptance remains distinct from the confirmed building-run happy path. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, and now the named-link/download/save/sync/admin-result happy path on 2026-09-15. Migrations 006–007 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: basic application-help administration is the next implementation slice. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from these successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
 ## Prepared
 
@@ -268,6 +268,14 @@ Final verification for the presentation fix: all 36 browser tests pass, along wi
 The owner supplied successful LABEL-UPDATE output: owner authentication/verified TLS passed, 007 completed, existing links/assignments/visits/passwords were preserved, and no links were issued or revoked. Independent verification at 21:10:06 UTC used the saved restricted account in a READ ONLY transaction. The reviewed privilege audit passed; three active synthetic campaigns remained; the five-argument issuance function existed and was executable. No credentials, names, resident records or private URLs were printed. Treat 007 as applied and immutable.
 
 Next: refresh the administrator workspace, issue a named practice link for the existing assignment, open/download it, confirm the label survives administrator refresh, save one synthetic visit, synchronize, and verify the received result. This audit does not close C07 or physical-phone/HTTPS acceptance. Only status documentation changed; no application suites were rerun and no hosted mutations, deployment or push were performed by the verification.
+
+## Owner-confirmed hosted field loop — 2026-09-15
+
+The owner issued the named practice credential (Link 4, active), opened its volunteer page, and saw Ready offline with two households stored. A new No answer visit for synthetic Unit 10B moved from one waiting to sync to Received / All records received. The administrator's refreshed assignment results displayed that visit and latest activity at 5:12:48 PM EDT (21:12:48 UTC). There were two total received visits/two attempted households: Unit 2A was already received from an earlier run, and Unit 10B was new. Do not describe the cumulative two as two submissions from this test or infer a duplicate. The owner also observed two earlier revoked links.
+
+This is owner-reported live Supabase workflow evidence on the local application build a0032f4, not an independent browser inspection, a per-credential visit attribution test, or a disconnected/physical-phone test. No private URL was shared or recorded. C07's core happy path is confirmed, while its combined retry/revocation gate remains open; explicit named-label browser reload is not established by a results refresh alone. No further visit or credential was created by the engineer. The open volunteer tab does not need to be closed or altered to record this result.
+
+Next implementation slice: basic administrator application-help queue and New/In progress/Resolved updates, followed by correction review and remaining lifecycle/completion work. Preserve the now-confirmed field loop. Only documentation changed for this confirmation; whitespace checks pass, no application suites were rerun, and no database changes, deployment or push occurred.
 
 ## One-time PRD revision record
 
