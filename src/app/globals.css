@@ -338,6 +338,16 @@ small,
 .notice strong {
   white-space: nowrap;
 }
+.notice.field-update {
+  display: grid;
+  gap: 12px;
+}
+.field-update p {
+  margin: 0;
+}
+.field-update button {
+  justify-self: start;
+}
 .success {
   border-left: 3px solid var(--green);
   padding: 12px;

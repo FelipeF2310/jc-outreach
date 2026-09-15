@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { FieldUpdate } from "./field-update";
 import {
   accessReasons,
   correctionNames,
@@ -53,6 +54,8 @@ export function FieldApp() {
   const [reference, setReference] = useState(false);
   const [blocked, setBlocked] = useState<string>();
   const [editing, setEditing] = useState<VisitOperation>();
+  const [appUpdating, setAppUpdating] = useState(false);
+  const [updateCheck, setUpdateCheck] = useState(0);
   const lock = useRef(false);
   async function reload() {
     const local = await readLocal();
@@ -143,6 +146,7 @@ export function FieldApp() {
       );
     } finally {
       setBusy(false);
+      setUpdateCheck((value) => value + 1);
     }
   }
   async function sync() {
@@ -239,7 +243,10 @@ export function FieldApp() {
   }
   return (
     <div className="field-shell">
-      <header className="field-header">
+      <p role="status" className="visually-hidden">
+        {appUpdating ? "Preparing app update. Keep this page open." : ""}
+      </p>
+      <header className="field-header" inert={appUpdating}>
         <a
           href="/"
           className="field-brand"
@@ -255,7 +262,7 @@ export function FieldApp() {
       <div className="demo-ribbon">
         SYNTHETIC REHEARSAL · NO REAL RESIDENT DATA
       </div>
-      <main className="field-main">
+      <main className="field-main" inert={appUpdating}>
         {!loaded ? (
           <p role="status">Opening stored assignment…</p>
         ) : !assignment || (token && token !== stored?.token) ? (
@@ -322,6 +329,14 @@ export function FieldApp() {
                 </button>
               )}
             </div>
+            <FieldUpdate
+              busy={busy}
+              formOpen={!!selected || !!blocked || !!editing}
+              pending={pending}
+              online={online}
+              checkSignal={updateCheck}
+              onUpdating={setAppUpdating}
+            />
             {ended && (
               <p className="notice">
                 Field work has ended. You can synchronize previously saved work
@@ -631,7 +646,7 @@ export function FieldApp() {
           ))}
       </main>
       {assignment && (
-        <footer className="sync-bar">
+        <footer className="sync-bar" inert={appUpdating}>
           <div>
             <strong>
               {busy

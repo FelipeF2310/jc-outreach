@@ -4,7 +4,7 @@ Status: synthetic field/import slices and administrator/database foundation impl
 
 ## Stack selection
 
-Latest addition (2026-09-15): household reassignment migration 010 is applied; independent restricted-runtime privilege/capability and workspace-read verification passed. The live handoff/reload walkthrough remains pending. Earlier status notes below are historical.
+Latest addition (2026-09-15): household reassignment migration 010 is applied; independent restricted-runtime checks and the owner-reported live handoff/reload walkthrough passed. Compatible app-update detection now addresses stale running tabs. Earlier status notes below are historical.
 
 ### Reassignment boundary
 
@@ -29,6 +29,16 @@ Same-assignment refresh replaces downloaded household data, not the outbox. Prog
 The owner has created a Supabase project and administrator accounts; live app authentication and database connectivity still require verification. Do not assume free-plan suitability, backup guarantees, email delivery, or production log behavior. Commit the actual dependency lockfile.
 
 ## Browser/server boundary
+
+### Compatible app-update protocol
+
+`next.config.ts` hashes only `src/`, `public/`, itself and the dependency lockfile in stable path order. The public digest is compiled into client code, a generic field-page meta tag and `/api/app-version`; never use a random per-config-evaluation marker because Next evaluates configuration in multiple workers. [Next documents build-time replacement of configured env values](https://nextjs.org/docs/app/api-reference/config/next-config-js/env). The endpoint is no-store and carries only the digest and numeric storage/operation compatibility versions. It needs no bearer link or administrator session; the client omits credentials. No database or resident data is accessed.
+
+The field notice checks on mount, assignment refresh, foreground/reconnection and every 60 seconds while visible. A failed check does not interrupt work or dismiss a previously known update. A changed compatible release offers an explicit action; drafts/open forms, busy UI, offline status and every unreceived record (including rejected records) block it. Current support requires storage/operation version 1; unknown versions require organizer assistance, not an attempted migration.
+
+Reload rechecks actual shared IndexedDB, checks the advertised target again, invokes existing worker preparation and verifies the cached HTML's exact release marker. The worker fetches assets before replacing the shell; failures leave prior cached assets and all data intact. A final local read verifies the assignment and sequence are unchanged and no pending work appeared during download. Only then does this tab navigate; no forced reload, `skipWaiting`, cache clearing, credential replacement or schema change occurs. Inert controls prevent same-tab edits during preparation; a separate live status remains accessible. Other tabs are not forcibly reloaded. Compatible v1 storage protects any later cross-tab write; this is not a cross-tab transaction lock spanning navigation. Service-worker protocol/schema upgrades need their own tested migration plan.
+
+Browser automation simulates two releases by transforming the public marker and asset URLs/content through a loopback proxy; it exercises actual caching, field storage and receipts but is not evidence of two independently built production deployments. HTTPS rollout/rollback and both physical phones remain acceptance work. Existing pages without the detector need one online assignment refresh followed by manual browser reload; their old JavaScript cannot announce a feature it does not contain.
 
 The volunteer experience must boot from a cached generic application shell without requiring a server-rendered resident page. Do not cache personalized server HTML or full administrator responses in shared caches. Assignment data is downloaded through an authorized endpoint into an explicit local schema.
 
