@@ -61,6 +61,9 @@ test("saved campaign imports synthetic households, rejects bad examples and rest
     .getByRole("button", { name: "Import synthetic households" })
     .click();
   expect(await page.locator('input[type="file"]').count()).toBe(0);
+  await page
+    .getByText("Testing tools — choose a CSV example", { exact: true })
+    .click();
   await page.getByLabel("Synthetic CSV example").selectOption("tier-three");
   await page.getByRole("button", { name: "Validate example" }).click();
   await expect(
@@ -223,13 +226,16 @@ test("campaign form preserves a pending save across reload and renders confirmed
     page.getByText("Campaign saved. No households have been imported."),
   ).toBeVisible();
   await expect(
-    page.getByText("Synthetic: Ward A practice", { exact: true }),
-  ).toBeVisible();
+    page.getByLabel("Current campaign", { exact: true }),
+  ).toHaveValue(received!.id);
+  await expect(
+    page.getByLabel("Campaign name", { exact: true }),
+  ).not.toBeVisible();
   const signOut = await page
     .getByRole("button", { name: "Sign out", exact: true })
     .boundingBox();
   const createHeading = await page
-    .getByRole("heading", { name: "Create synthetic campaign", exact: true })
+    .getByRole("region", { name: "Campaign overview", exact: true })
     .boundingBox();
   expect(
     createHeading!.y - (signOut!.y + signOut!.height),
@@ -241,8 +247,8 @@ test("campaign form preserves a pending save across reload and renders confirmed
   expect(writes).toBe(1);
   await page.reload();
   await expect(
-    page.getByText("Synthetic: Ward A practice", { exact: true }),
-  ).toBeVisible();
+    page.getByLabel("Current campaign", { exact: true }),
+  ).toHaveValue(received!.id);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(
@@ -327,20 +333,20 @@ test("password UI handles invalid credentials, signed-in campaigns and sign-out 
   await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Signed in", exact: true }),
+    page.getByText("Signed in as organizer@example.test", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "Database setup is incomplete",
   );
   await expect(
-    page.getByRole("heading", { name: "Signed in", exact: true }),
+    page.getByText("Signed in as organizer@example.test", { exact: true }),
   ).toBeVisible();
   databaseReady = true;
   await page.getByRole("button", { name: "Retry loading campaigns" }).click();
   await expect(page.getByText(/No active synthetic campaigns/)).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Signed in", exact: true }),
+    page.getByText("Signed in as organizer@example.test", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/No active synthetic campaigns/)).toBeVisible();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();

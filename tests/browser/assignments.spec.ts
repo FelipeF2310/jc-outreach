@@ -103,7 +103,9 @@ test("organizer chooses doors, retries an ambiguous save and restores assignment
   await expect(
     section.getByText("0 events · 0 saved assignments"),
   ).toBeVisible();
-  await section.getByRole("button", { name: "Manage assignments" }).click();
+  await section
+    .getByRole("button", { name: "Create assignment", exact: true })
+    .click();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Saturday practice");
@@ -181,6 +183,7 @@ test("organizer chooses doors, retries an ambiguous save and restores assignment
   await expect(
     section.getByRole("checkbox", { name: /Unit 10B/ }),
   ).toBeDisabled();
+  await section.getByText("Create another event", { exact: true }).click();
   await page.getByLabel("Event name", { exact: true }).fill("Second practice");
   await page.getByLabel("Event end date").fill("2030-04-21");
   await section
@@ -208,7 +211,7 @@ test("organizer chooses doors, retries an ambiguous save and restores assignment
     section.getByText("Practice Volunteer B", { exact: true }),
   ).toBeVisible();
   await expect(
-    section.getByRole("button", { name: "Manage assignments" }),
+    section.getByRole("button", { name: "Create assignment", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(() =>

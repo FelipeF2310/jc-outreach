@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CampaignCreate, type HostedCampaign } from "./campaign-create";
-import { CampaignImport } from "./campaign-import";
-import { CampaignAssignments } from "./campaign-assignments";
+import type { HostedCampaign } from "./campaign-create";
+import { AdminWorkspace } from "./admin-workspace";
 
 type Identity = { id: string; email: string };
 export function AdminSignIn() {
@@ -116,36 +115,40 @@ export function AdminSignIn() {
     }
   }
   return (
-    <main className="admin-sign-in">
+    <main
+      className={identity ? "admin-sign-in admin-workspace" : "admin-sign-in"}
+    >
       <p className="eyebrow">JERSEY CITY BENEFITS OUTREACH</p>
-      <h1>Administrator access</h1>
-      <p>
-        For approved organizers only. Volunteers still use their private
-        assignment links—no account needed.
-      </p>
-      <p className="fine">
-        Hosted synthetic preview only. This is separate from the local practice
-        console. Real resident uploads remain disabled.
+      <h1>{identity ? "Outreach workspace" : "Administrator access"}</h1>
+      {!identity && (
+        <p>
+          For approved organizers only. Volunteers still use their private
+          assignment links—no account needed.
+        </p>
+      )}
+      <p className={identity ? "preview-banner" : "fine"}>
+        Synthetic preview · Practice records only. Real resident uploads remain
+        disabled.
       </p>
       {identity ? (
         <section aria-label="Signed-in administrator">
-          <h2>Signed in</h2>
-          <p>{identity.email}</p>
-          <div className="import-assignment-actions">
-            <button
-              className="primary"
-              disabled={busy || campaignsLoading}
-              onClick={() => setCampaignRefresh((value) => value + 1)}
-            >
-              {campaignsLoading
-                ? "Loading campaigns…"
-                : campaignsError
-                  ? "Retry loading campaigns"
-                  : "Refresh campaigns"}
-            </button>
-            <button disabled={busy} onClick={() => void run("signout")}>
-              Sign out
-            </button>
+          <div className="workspace-toolbar account-toolbar">
+            <p className="fine">Signed in as {identity.email}</p>
+            <div className="workspace-actions">
+              <button
+                disabled={busy || campaignsLoading}
+                onClick={() => setCampaignRefresh((value) => value + 1)}
+              >
+                {campaignsLoading
+                  ? "Loading campaigns…"
+                  : campaignsError
+                    ? "Retry loading campaigns"
+                    : "Refresh campaigns"}
+              </button>
+              <button disabled={busy} onClick={() => void run("signout")}>
+                Sign out
+              </button>
+            </div>
           </div>
           {campaignsLoading && <p role="status">Loading saved campaigns…</p>}
           {campaignsError && (
@@ -154,77 +157,30 @@ export function AdminSignIn() {
               loading; do not re-enter them in the creation form.
             </p>
           )}
-          <CampaignCreate
-            key={identity.id}
-            administratorId={identity.id}
-            onCreated={(campaign) => {
-              setCampaigns((existing) => [
-                campaign,
-                ...(existing ?? []).filter((row) => row.id !== campaign.id),
-              ]);
-              // Replace any older list request with a fresh server read after saving.
-              setCampaignRefresh((value) => value + 1);
-            }}
-          />
           {campaigns && (
-            <div className="campaign-list" aria-label="Synthetic campaigns">
-              <h2>Campaigns</h2>
-              {campaigns.length === 0 ? (
-                <p>
-                  No active synthetic campaigns. Create a practice campaign
-                  above.
-                </p>
-              ) : (
-                campaigns.map((campaign) => (
-                  <div key={campaign.id} className="result-row">
-                    <div>
-                      <strong>{campaign.name}</strong>
-                      <small>
-                        Campaign ends:{" "}
-                        {campaign.endAt
-                          ? new Date(campaign.endAt).toLocaleString("en-US", {
-                              timeZone: "America/New_York",
-                              timeZoneName: "short",
-                            })
-                          : "Not recorded in this earlier practice campaign"}
-                      </small>
-                      <small>
-                        Deletion scheduled:{" "}
-                        {new Date(campaign.deletionAt).toLocaleString("en-US", {
-                          timeZone: "America/New_York",
-                        })}{" "}
-                        ET
-                      </small>
-                      <CampaignImport
-                        campaignId={campaign.id}
-                        receipt={campaign.importReceipt}
-                        ready={campaign.importReady === true}
-                        onFinalized={(receipt) => {
-                          setCampaigns((values) =>
-                            values?.map((value) =>
-                              value.id === campaign.id
-                                ? { ...value, importReceipt: receipt }
-                                : value,
-                            ),
-                          );
-                          setCampaignRefresh((value) => value + 1);
-                        }}
-                      />
-                      {campaign.importReceipt && (
-                        <CampaignAssignments
-                          campaignId={campaign.id}
-                          administratorId={identity.id}
-                          deletionAt={campaign.deletionAt}
-                          ready={campaign.assignmentsReady === true}
-                          fieldReady={campaign.fieldReady === true}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-              <p className="fine">Automatic deletion is not connected yet.</p>
-            </div>
+            <AdminWorkspace
+              key={identity.id}
+              administratorId={identity.id}
+              campaigns={campaigns}
+              onCreated={(campaign) => {
+                setCampaigns((existing) => [
+                  campaign,
+                  ...(existing ?? []).filter((row) => row.id !== campaign.id),
+                ]);
+                // Replace any older list request with a fresh server read after saving.
+                setCampaignRefresh((value) => value + 1);
+              }}
+              onFinalized={(campaignId, receipt) => {
+                setCampaigns((values) =>
+                  values?.map((value) =>
+                    value.id === campaignId
+                      ? { ...value, importReceipt: receipt }
+                      : value,
+                  ),
+                );
+                setCampaignRefresh((value) => value + 1);
+              }}
+            />
           )}
         </section>
       ) : (

@@ -35,7 +35,9 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Local persistence and synchronization
 
-- [ ] C07: A verified administrator issues a link for the saved hosted assignment, a volunteer downloads only its households, records/synchronizes a visit, and the administrator sees its received result. Retrying issuance never duplicates credentials; an unavailable one-time secret is explained. Explicit revocation rejects downloads/uploads while pending local work survives. Migration 006 and live hosted verification remain pending; local evidence is recorded in PLAN.md.
+- [ ] C08: Administrator can use one selected-campaign workspace to review import status, create/find an assignment, share its link, and inspect that assignment's received results without coaching. Synthetic browser coverage includes section layout, campaign switching/draft retention, remembered selection, results read failures, and mobile/desktop widths. Owner/administrator usability confirmation remains pending; no backend launch gates are waived.
+
+- [ ] C07: A verified administrator issues a link for the saved hosted assignment, a volunteer downloads only its households, records/synchronizes a visit, and the administrator sees its received result. Retrying issuance never duplicates credentials; an unavailable one-time secret is explained. Explicit revocation rejects downloads/uploads while pending local work survives. Migration 006 and the independent read-only restricted-runtime/capability audit passed on 2026-09-15; the live field workflow remains pending. Local evidence is recorded in PLAN.md.
 
 - [ ] S01: Ready offline appears only after the shell, assignment, reference material, and local-storage verification succeed.
 - [ ] S02: Failed local transaction shows failure and does not advance as if the visit was saved.

@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { outcomes } from "@/lib/contracts";
 import {
   fieldAdminRequest,
   type FieldAdminRequest,
@@ -151,19 +150,18 @@ export function AssignmentFieldControls({
   }
   return (
     <section
-      aria-label={`Volunteer links and results for ${name}`}
+      aria-label={`Volunteer links for ${name}`}
       className="assignment-field-controls"
     >
       <button
+        aria-expanded={open}
         disabled={busy}
         onClick={() => {
           setOpen(!open);
           if (!open) void run({ action: "status", assignmentId });
         }}
       >
-        {open
-          ? "Hide volunteer links and results"
-          : "Volunteer links and results"}
+        {open ? "Hide volunteer links" : "Volunteer links"}
       </button>
       {open && (
         <>
@@ -209,7 +207,7 @@ export function AssignmentFieldControls({
               disabled={busy}
               onClick={() => void run({ action: "status", assignmentId })}
             >
-              Refresh links and results
+              Refresh links
             </button>
           </div>
           {link && (
@@ -303,30 +301,6 @@ export function AssignmentFieldControls({
                     </>
                   )}
                 </div>
-              ))}
-              <h4>Received results for this assignment</h4>
-              <p>
-                {snapshot.counts.attempts} households attempted ·{" "}
-                {snapshot.counts.conversations} conversations ·{" "}
-                {snapshot.counts.repeats} repeat visits
-              </p>
-              <p>
-                {snapshot.buildingFailures} building-access failures ·{" "}
-                {snapshot.helpRequests} application-help requests
-              </p>
-              <p className="fine">
-                Latest received activity:{" "}
-                {snapshot.latestReceivedAt
-                  ? date(snapshot.latestReceivedAt)
-                  : "None yet"}
-                . Work still on an offline phone is not visible here.
-              </p>
-              {snapshot.visits.map((v) => (
-                <p key={v.id}>
-                  {v.address} {v.unit ? `· Unit ${v.unit}` : ""}
-                  <br />
-                  {outcomes[v.result]}
-                </p>
               ))}
             </>
           )}

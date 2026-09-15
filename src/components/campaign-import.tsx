@@ -79,14 +79,15 @@ export function CampaignImport({
     <section className="campaign-import" aria-label="Campaign household import">
       {saved ? (
         <>
-          <h3>Import finalized</h3>
+          <h3 className="visually-hidden">Import finalized</h3>
           <p role="status">
             {saved.counts.people} people · {saved.counts.households} households
-            · {saved.counts.buildings} buildings saved.
+            · {saved.counts.buildings}{" "}
+            {saved.counts.buildings === 1 ? "building" : "buildings"} saved.
           </p>
           <p className="fine">
-            This synthetic source cannot be replaced. Event and assignment
-            preparation appears below when its database update is ready.
+            Your household list is saved. Continue to volunteer assignments
+            below. This finalized synthetic source cannot be replaced.
           </p>
         </>
       ) : (
@@ -108,29 +109,32 @@ export function CampaignImport({
                 disabled. The two error examples deliberately demonstrate
                 rejection.
               </p>
-              <label className="import-label">
-                Synthetic CSV example
-                <select
-                  value={caseId}
-                  disabled={busy || pending}
-                  onChange={(event) => {
-                    setCaseId(event.target.value);
-                    setPreview(undefined);
-                    setConfirmed(false);
-                    setError("");
-                  }}
-                >
-                  <option value="valid-couple-and-buildings">
-                    Valid example — 4 people, 3 doors
-                  </option>
-                  <option value="tier-three">
-                    Error example — disallowed Tier 3
-                  </option>
-                  <option value="conflicting-unit">
-                    Error example — conflicting units
-                  </option>
-                </select>
-              </label>
+              <details className="testing-tools">
+                <summary>Testing tools — choose a CSV example</summary>
+                <label className="import-label">
+                  Synthetic CSV example
+                  <select
+                    value={caseId}
+                    disabled={busy || pending}
+                    onChange={(event) => {
+                      setCaseId(event.target.value);
+                      setPreview(undefined);
+                      setConfirmed(false);
+                      setError("");
+                    }}
+                  >
+                    <option value="valid-couple-and-buildings">
+                      Valid example — 4 people, 3 doors
+                    </option>
+                    <option value="tier-three">
+                      Error example — disallowed Tier 3
+                    </option>
+                    <option value="conflicting-unit">
+                      Error example — conflicting units
+                    </option>
+                  </select>
+                </label>
+              </details>
               <button
                 disabled={busy || pending}
                 onClick={() => void run("preview")}

@@ -266,10 +266,10 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
   try {
     await page.goto(`${origin}/admin`);
     const controls = page.getByRole("region", {
-      name: "Volunteer links and results for Practice Volunteer A",
+      name: "Volunteer links for Practice Volunteer A",
     });
     await controls
-      .getByRole("button", { name: "Volunteer links and results", exact: true })
+      .getByRole("button", { name: "Volunteer links", exact: true })
       .click();
     await controls
       .getByRole("button", { name: "Generate private link" })
@@ -348,20 +348,35 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     expect(received.size).toBe(1);
     await page.reload();
     await controls
-      .getByRole("button", { name: "Volunteer links and results", exact: true })
+      .getByRole("button", { name: "Volunteer links", exact: true })
       .click();
     await expect(
       controls.getByLabel("Private volunteer link"),
     ).not.toBeVisible();
+    const results = page.getByRole("region", {
+      name: "Results and follow-up",
+      exact: true,
+    });
     await expect(
-      controls.getByText(
-        "1 households attempted · 1 conversations · 0 repeat visits",
-      ),
-    ).toBeVisible();
+      results
+        .locator(".stat")
+        .filter({ hasText: "Households attempted" })
+        .locator("strong"),
+    ).toHaveText("1");
     await expect(
-      controls.getByText(
-        "0 building-access failures · 1 application-help requests",
-      ),
+      results
+        .locator(".stat")
+        .filter({ hasText: "Conversations" })
+        .locator("strong"),
+    ).toHaveText("1");
+    await expect(
+      results
+        .locator(".stat")
+        .filter({ hasText: "Application-help requests" })
+        .locator("strong"),
+    ).toHaveText("1");
+    await expect(
+      results.getByText("0 repeat visits · 0 building-access failures"),
     ).toBeVisible();
     await reopened.getByRole("button", { name: /Unit 10B/ }).click();
     await reopened.getByLabel("No answer", { exact: true }).check();

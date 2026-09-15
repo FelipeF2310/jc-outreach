@@ -17,9 +17,11 @@ type Save = { id: string; name: string; endDate: string };
 export function CampaignCreate({
   administratorId,
   onCreated,
+  initiallyOpen = false,
 }: {
   administratorId: string;
   onCreated: (campaign: HostedCampaign) => void;
+  initiallyOpen?: boolean;
 }) {
   const [name, setName] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -28,6 +30,7 @@ export function CampaignCreate({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [open, setOpen] = useState(initiallyOpen);
   const storageKey = `jco-campaign-save:${administratorId}`;
   useEffect(() => {
     try {
@@ -42,6 +45,7 @@ export function CampaignCreate({
         )
           throw new Error();
         setPending(value);
+        setOpen(true);
         setName(value.name);
         setEndDate(value.endDate);
       }
@@ -91,6 +95,7 @@ export function CampaignCreate({
       setPending(undefined);
       setName("");
       setEndDate("");
+      setOpen(false);
       onCreated(body.campaign);
       setMessage("Campaign saved. No households have been imported.");
     } catch (failure) {
@@ -105,58 +110,64 @@ export function CampaignCreate({
   }
   return (
     <section className="campaign-create" aria-label="Create synthetic campaign">
-      <h2>Create synthetic campaign</h2>
-      <p className="fine">
-        Use a practice label only—no resident names or addresses. This does not
-        import households.
-      </p>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
+      <details
+        open={open}
+        onToggle={(event) => setOpen(event.currentTarget.open)}
       >
-        <label className="import-label">
-          Campaign name
-          <input
-            required
-            maxLength={100}
-            value={name}
-            disabled={!ready || busy || !!pending}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <label className="import-label">
-          Campaign end date
-          <input
-            type="date"
-            required
-            value={endDate}
-            disabled={!ready || busy || !!pending}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </label>
+        <summary>Create a campaign</summary>
+        <h2>Create synthetic campaign</h2>
         <p className="fine">
-          Ends at 11:59:59 PM on this date in America/New_York. The database
-          schedules deletion 30 calendar days later. Automatic deletion is not
-          connected yet.
+          Use a practice label only—no resident names or addresses. This does
+          not import households.
         </p>
-        {pending && (
-          <p role="status">
-            A save is awaiting confirmation. Retry this same request to avoid
-            duplicates, even after reloading this tab.
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <label className="import-label">
+            Campaign name
+            <input
+              required
+              maxLength={100}
+              value={name}
+              disabled={!ready || busy || !!pending}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <label className="import-label">
+            Campaign end date
+            <input
+              type="date"
+              required
+              value={endDate}
+              disabled={!ready || busy || !!pending}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </label>
+          <p className="fine">
+            Ends at 11:59:59 PM on this date in America/New_York. The database
+            schedules deletion 30 calendar days later. Automatic deletion is not
+            connected yet.
           </p>
-        )}
-        <div className="import-assignment-actions">
-          <button className="primary" disabled={!ready || busy} type="submit">
-            {busy
-              ? "Saving…"
-              : pending
-                ? "Retry campaign save"
-                : "Create campaign"}
-          </button>
-        </div>
-      </form>
+          {pending && (
+            <p role="status">
+              A save is awaiting confirmation. Retry this same request to avoid
+              duplicates, even after reloading this tab.
+            </p>
+          )}
+          <div className="import-assignment-actions">
+            <button className="primary" disabled={!ready || busy} type="submit">
+              {busy
+                ? "Saving…"
+                : pending
+                  ? "Retry campaign save"
+                  : "Create campaign"}
+            </button>
+          </div>
+        </form>
+      </details>
       {message && <p role="status">{message}</p>}
       {error && (
         <p role="alert" className="error">

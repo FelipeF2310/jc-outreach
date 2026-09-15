@@ -4,16 +4,18 @@ Agreed with the owner on 2026-09-15. Keep this roadmap current as work proceeds;
 
 ## Current position
 
-Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. The hosted private-link/download/sync/results connection is implemented locally, awaiting migration 006 and a live end-to-end check. Real CSV uploads and production resident use remain disabled.
+Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. The hosted private-link/download/sync/results connection is implemented; migration 006 and independent restricted-runtime checks passed on 2026-09-15. The live end-to-end field check remains pending. Real CSV uploads and production resident use remain disabled.
 
 ## Next milestone
+
+The owner requested a usability pass before resuming the live field-loop test: one selected campaign, compact setup, clearly grouped assignment actions, and a separate received-results section. Preserve the current typography/palette and all backend/security/offline boundaries. This is a frontend organization change, not a new database migration. Administrator review of the revised workspace remains part of the handoff.
 
 An administrator selects three imported household doors, assigns them to a volunteer for an event, issues one private link, and receives that volunteer's synchronized results.
 
 Deliver this in independently testable slices:
 
 1. **Event and assignment preparation (hosted building-run save/reload confirmed):** separate events from campaigns, select imported households/buildings, order scattered doors, save an assignment, prevent duplicate active assignment in the same event, restore the organizer workspace after reload. Migration 005 and restricted runtime reads were verified on 2026-09-15. The owner subsequently confirmed one saved event and a two-door building run surviving reload, with both doors marked already assigned. Hosted manual-order and competing-save acceptance remain distinct from this happy-path confirmation.
-2. **Private-link field connection (implemented locally; 006/live check pending):** issue/revoke scoped credentials; connect the existing volunteer download/offline/sync workflow to hosted storage with narrow privileges. Test end dates, the upload-only window and unauthorized household access. The controls remain hidden until the new database capabilities exist. Tokens are shown at issuance only, stored server-side as hashes; no silent revocation on retry or additional issuance.
+2. **Private-link field connection (006 applied; live field-loop check pending):** issue/revoke scoped credentials; connect the existing volunteer download/offline/sync workflow to hosted storage with narrow privileges. Test end dates, the upload-only window and unauthorized household access. The restricted runtime audit and all five field-function capability checks passed on 2026-09-15. Tokens are shown at issuance only, stored server-side as hashes; no silent revocation on retry or additional issuance.
 3. **Organizer operations:** received results, application-help and correction queues, suppression, reassignment/supersession, revisions and completion reporting. Retain legitimate offline work and distinguish last-known status from current unknown device state.
 4. **Launch safeguards:** scheduled deletion and failure handling; backup restoration/expiry; administrator recovery/rate limits; app-update preservation of pending work; HTTPS hosting and production log/body review; reviewed program content; both physical phones.
 5. **Approved CSV intake:** review headers and a small de-identified representative sample first. Enable actual approved Tier 1/2 ingress only after its authorization, provenance, logging/temp-storage and persistence controls pass. Never request/import Tier 3, renter-exclusion files or voter-file enrichment.
