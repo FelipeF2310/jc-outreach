@@ -113,6 +113,22 @@ Passing local mock-provider tests does not satisfy these hosted checks. Schedule
 
 ## Local evidence and reproduction
 
+### Household reassignment update 010 — prepared, not applied
+
+Use the ignored `private/update-reassignment.command` only after local verification. Confirm **REASSIGNMENT-UPDATE**, then enter the existing database-owner password through hidden stdin, never chat. The helper uses verified TLS, the existing synthetic marker/checksum/transaction checks, and sanitized stage/category failures. It changes no passwords, issues/revokes no links, moves no doors, and does not initialize, reset or delete existing data. Applied 002–009 must not be edited. On failure, share only the fixed output; do not rerun bootstrap.
+
+After success, independently run the restricted-runtime privilege audit, check execution of `outreach.reassign_households(uuid,uuid,uuid,text,uuid[],uuid)`, and parse imported-campaign workspaces read-only, confirming `reassignmentReady` without printing records or credentials. Then reload the signed-in app. Existing campaign/import/field controls continue to function before 010; reassignment controls appear only after capability readiness.
+
+Owner walkthrough (synthetic only):
+
+1. Synchronize the existing volunteer work before changing browser assignments; do not revoke its link. Note received visit totals.
+2. In the existing event, open Practice Volunteer A → Reassign doors. Select only Unit 10B, name the new assignment Practice Volunteer B, confirm the handoff and move it.
+3. Reload administration. A should have Unit 2A active and Unit 10B in Reassigned doors; B should have Unit 10B active in the same event. No new link should have been issued. Other doors remain unchanged.
+4. On the old volunteer page, refresh assignment: Unit 10B disappears from the active list. Existing saved records remain; results retain earlier visits and label those on the reassigned door. Reassignment itself adds no visit.
+5. Issue a separately named link for B only when ready to use it. Use a separate browser profile for simultaneous assignments; the current client intentionally stores one assignment per browser origin. Never replace a browser assignment containing unreceived work, share its URL in chat, or confuse issuing B's link with revoking A's.
+
+Local tests cover pending offline handoff, empty assignments, competing saves and expiration; those are not owner-confirmed hosted or physical-phone evidence. Actual phones need the later HTTPS preview, not this computer's localhost link. Scheduled deletion and real-data gates remain open.
+
 ### Additive hosted field update 006
 
 Status: applied in the owner's run starting 2026-09-15 at 20:04:57 UTC, independently verified read-only at 20:07:56 UTC. Applied 002–006 are immutable. The ignored `private/update-field.command` prompts for **FIELD-UPDATE** and the existing database-owner password through hidden stdin, then runs `scripts/migrate-field.ts` with verified TLS and fixed, sanitized failure categories. This completed procedure is retained for reference, not a request to rerun it. It changes neither application credentials nor saved configuration. It adds credential lifecycle metadata and five bounded runtime functions through two non-login executors, with internal helpers inaccessible to the runtime/provider clients. It creates no links or visits and does not reset, import or delete anything.

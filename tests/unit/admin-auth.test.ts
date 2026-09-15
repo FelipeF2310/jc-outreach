@@ -245,6 +245,76 @@ test("assignment preparation authenticates before opening a database", async () 
   assert.equal(opened, 0);
 });
 
+test("reassignment uses verified administrator identity, never a client actor", async () => {
+  const input = {
+    action: "reassign",
+    id: user.id,
+    campaignId: user.id,
+    sourceId: "10000000-0000-4000-8000-000000000001",
+    name: "New practice volunteer",
+    householdIds: [user.id],
+    confirmed: true,
+  };
+  let parameters: unknown[] | undefined;
+  const db: Database = {
+    async query<T>(sql: string, params?: unknown[]) {
+      if (!params)
+        return {
+          rows: [
+            { stage: "synthetic-preview", role: "jco_admin_reader" },
+          ] as T[],
+        };
+      if (sql.includes("reassign_households")) {
+        parameters = params;
+        return { rows: [{ id: input.id }] as T[] };
+      }
+      return {
+        rows: [
+          {
+            workspace: {
+              campaignId: input.campaignId,
+              households: [],
+              events: [],
+              assignments: [],
+            },
+          },
+        ] as T[],
+      };
+    },
+    async exec() {},
+    async transaction(work) {
+      return work(db);
+    },
+  };
+  for (const [body, expected] of [
+    [input, 200],
+    [{ ...input, actor: input.sourceId }, 400],
+  ] as const) {
+    parameters = undefined;
+    const req = request(body, cookie());
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => prepareAdministratorAssignment(req, ctx, cfg, () => db),
+      { config, fetcher: provider().fetcher },
+    );
+    assert.equal(response.status, expected);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+    assert.deepEqual(
+      parameters,
+      expected === 200
+        ? [
+            input.id,
+            input.campaignId,
+            input.sourceId,
+            input.name,
+            input.householdIds,
+            user.id,
+          ]
+        : undefined,
+    );
+  }
+});
+
 test("private link management requires verified administrator access before database or body access", async () => {
   let opened = 0;
   const database = (): Database => {

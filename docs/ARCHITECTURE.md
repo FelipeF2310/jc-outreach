@@ -4,6 +4,18 @@ Status: synthetic field/import slices and administrator/database foundation impl
 
 ## Stack selection
 
+Latest addition (2026-09-15): locally tested household reassignment, with unapplied additive migration 010. The hosted operator and owner walkthrough remain pending. Earlier status notes below are historical.
+
+### Reassignment boundary
+
+`reassign_households` moves selected active, unsuppressed source memberships into a newly named assignment in the same event, keeping source type and caller-specified selected-door order. There is no merge into an existing target. The existing administrator endpoint validates identity/allowlist/origin, explicit confirmation and a bounded IDs-only request; the actor comes only from provider verification. The runtime executes one narrow non-login-owned function, never general membership writes.
+
+The transaction locks the new assignment ID (shared with ordinary creation), source assignment (shared with field access/upload/revocation), and selected memberships. It validates campaign/event lifetime, scopes and suppression, supersedes source memberships, invokes existing assignment preparation, and inserts an actor/content-bound audit receipt. All changes roll back together. The active event/household unique constraint is retained. Exact retries return the receipt without replaying membership mutations; changed payload/actor conflicts. Receipt rows cascade with campaign/assignment deletion. Existing applied migrations remain checksum-protected.
+
+Workspace and field projections add optional superseded household IDs; field downloads contain resident details only for active memberships. Existing servers without 010 remain compatible and hide the new administrator controls. Received-result flags describe current reassigned membership, not proof that a visit occurred after the handoff. Reassignment does not revoke credentials: previously saved historical-membership operations and revisions stay uploadable under existing credential/event/campaign rules. Disconnected devices may still contain the old list; organizers must coordinate the handoff.
+
+Same-assignment refresh replaces downloaded household data, not the outbox. Progress uses active doors only; an empty assignment retains sync controls. New local visits/building attempts must still belong to the stored active assignment within the local transaction, preventing stale-tab saves after another tab refreshes. Existing operations/revisions remain. No storage-schema change or outbox-clearing migration is introduced. Completion markers remain a separate pending slice.
+
 | Component | Selection | Reason |
 | --- | --- | --- |
 | Web application and server endpoints | Next.js with strict TypeScript | One deployable application for volunteer UI, administrator UI, and server-controlled access. |

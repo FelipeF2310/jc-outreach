@@ -42,6 +42,7 @@ export type FieldSnapshot = {
     unit: string;
     result: Outcome;
     receivedAt: string;
+    superseded?: boolean;
   }[];
   counts: { attempts: number; repeats: number; conversations: number };
   buildingFailures: number;

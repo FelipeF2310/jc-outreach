@@ -19,6 +19,7 @@ import { migrateHelpQueue } from "../../src/server/migrate-help-queue";
 import { helpAdmin } from "../../src/server/admin-help";
 import { correctionAdmin } from "../../src/server/admin-corrections";
 import { migrateCorrectionQueue } from "../../src/server/migrate-correction-queue";
+import { migrateReassignment } from "../../src/server/migrate-reassignment";
 import {
   downloadHostedAssignment,
   submitHostedOperation,
@@ -2253,6 +2254,419 @@ test("correction queue preserves visits, scopes reads, audits atomic versioned u
         [campaign.id],
       )
     ).rows[0].count,
+    0,
+  );
+});
+
+test("reassignment is atomic, scoped and retry-safe; superseded links retain offline uploads but not fresh door downloads", async () => {
+  const runtime = postgresDatabase(reader),
+    actor = randomUUID();
+  const denied = (status: number) => (e: unknown) =>
+    e instanceof DomainError && e.status === status;
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Reassignment practice", endDate: "2030-05-01" },
+    actor,
+  );
+  const other = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Other move campaign", endDate: "2030-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Move practice",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const doors = event.workspace.households.map((h) => h.id);
+  const source = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: source,
+      campaignId: campaign.id,
+      eventId: event.savedId,
+      name: "Original volunteer",
+      kind: "scattered",
+      householdIds: doors,
+    },
+    actor,
+  );
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId: source,
+      label: "Original private link",
+    },
+    actor,
+  );
+  const before = await downloadHostedAssignment(runtime, issued.token!);
+  const makeVisit = (
+    assignmentId = source,
+    householdId = doors[0],
+  ): VisitOperation => ({
+    id: randomUUID(),
+    visitId: randomUUID(),
+    schemaVersion: 1,
+    assignmentId,
+    householdId,
+    kind: "visit",
+    createdAt: new Date().toISOString(),
+    result: "resident",
+    programs: [],
+    help: null,
+    corrections: [],
+    doNotContact: false,
+  });
+  const existing = makeVisit(),
+    offline = makeVisit();
+  await submitHostedOperation(runtime, issued.token!, existing);
+  assert.equal(
+    (
+      await assignmentAdmin(
+        runtime,
+        { action: "workspace", campaignId: campaign.id },
+        actor,
+      )
+    ).workspace.reassignmentReady,
+    undefined,
+  );
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateReassignment(postgresDatabase(migrator));
+    await migrateReassignment(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  const move = {
+    action: "reassign",
+    id: randomUUID(),
+    campaignId: campaign.id,
+    sourceId: source,
+    name: "Replacement volunteer",
+    householdIds: [doors[0]],
+    confirmed: true,
+  } as const;
+  const results = await Promise.all([
+    assignmentAdmin(runtime, move, actor),
+    assignmentAdmin(runtime, move, actor),
+  ]);
+  assert.equal(results[0].savedId, move.id);
+  assert.equal(results[1].savedId, move.id);
+  assert.equal(results[0].workspace.reassignmentReady, true);
+  const old = results[0].workspace.assignments.find((a) => a.id === source)!;
+  const replacement = results[0].workspace.assignments.find(
+    (a) => a.id === move.id,
+  )!;
+  assert.deepEqual(old.householdIds, doors.slice(1));
+  assert.deepEqual(old.supersededHouseholdIds, [doors[0]]);
+  assert.deepEqual(replacement.householdIds, [doors[0]]);
+  assert.equal(replacement.eventId, event.savedId);
+  assert.equal(replacement.kind, "scattered");
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.reassignments WHERE id=$1",
+        [move.id],
+      )
+    ).rows[0].n,
+    1,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.credentials WHERE assignment_id=$1",
+        [move.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  for (const changed of [
+    { ...move, name: "Different" },
+    { ...move, householdIds: [doors[1]] },
+    { ...move, id: randomUUID() },
+  ])
+    await assert.rejects(
+      () => assignmentAdmin(runtime, changed, actor),
+      denied(409),
+    );
+  await assert.rejects(
+    () => assignmentAdmin(runtime, move, randomUUID()),
+    denied(409),
+  );
+  await assert.rejects(
+    () =>
+      assignmentAdmin(
+        runtime,
+        { ...move, id: randomUUID(), campaignId: other.id },
+        actor,
+      ),
+    denied(404),
+  );
+  await assert.rejects(
+    () =>
+      assignmentAdmin(
+        runtime,
+        { ...move, id: randomUUID(), householdIds: [doors[1], randomUUID()] },
+        actor,
+      ),
+    denied(409),
+  );
+  const refreshed = await downloadHostedAssignment(runtime, issued.token!);
+  assert.deepEqual(
+    refreshed.households,
+    before.households.filter((h) => h.id !== doors[0]),
+  );
+  assert.deepEqual(refreshed.supersededHouseholdIds, [doors[0]]);
+  assert.ok(!refreshed.households.some((h) => h.id === doors[0]));
+  const receipt = await submitHostedOperation(runtime, issued.token!, offline);
+  assert.deepEqual(
+    await submitHostedOperation(runtime, issued.token!, offline),
+    receipt,
+  );
+  let snap = (
+    await hostedFieldAdmin(
+      runtime,
+      { action: "status", assignmentId: source },
+      actor,
+    )
+  ).snapshot;
+  assert.equal(snap.visits.length, 2);
+  assert.ok(snap.visits.every((v) => v.superseded));
+  assert.equal(snap.credentials[0].label, "Original private link");
+  assert.equal(snap.credentials[0].revoked, false);
+  const newLink = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId: move.id,
+      label: "New volunteer",
+    },
+    actor,
+  );
+  assert.deepEqual(
+    (await downloadHostedAssignment(runtime, newLink.token!)).households,
+    before.households.filter((h) => h.id === doors[0]),
+  );
+  const independent = makeVisit(move.id);
+  await submitHostedOperation(runtime, newLink.token!, independent);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.visits WHERE household_id=$1",
+        [doors[0]],
+      )
+    ).rows[0].n,
+    3,
+  );
+  await submitHostedOperation(runtime, issued.token!, {
+    id: randomUUID(),
+    kind: "revision",
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    assignmentId: source,
+    visitId: offline.visitId,
+    householdId: doors[0],
+    originalOperationId: offline.id,
+    previousOperationId: offline.id,
+    result: "other",
+  });
+  snap = (
+    await hostedFieldAdmin(
+      runtime,
+      { action: "status", assignmentId: source },
+      actor,
+    )
+  ).snapshot;
+  assert.equal(snap.visits.length, 2);
+  // A real audit failure after creating the target must roll back all membership/assignment writes.
+  const next = {
+    ...move,
+    id: randomUUID(),
+    householdIds: [doors[1]],
+    name: "Retry volunteer",
+  };
+  await pool.query(
+    "CREATE FUNCTION outreach.fail_reassignment() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic late failure'; END $$; CREATE TRIGGER fail_reassignment BEFORE INSERT ON outreach.reassignments FOR EACH ROW EXECUTE FUNCTION outreach.fail_reassignment()",
+  );
+  await assert.rejects(() => assignmentAdmin(runtime, next, actor));
+  await pool.query(
+    "DROP TRIGGER fail_reassignment ON outreach.reassignments; DROP FUNCTION outreach.fail_reassignment()",
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.assignments WHERE id=$1",
+        [next.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT state FROM outreach.memberships WHERE assignment_id=$1 AND household_id=$2",
+        [source, doors[1]],
+      )
+    ).rows[0].state,
+    "active",
+  );
+  const race = await Promise.allSettled([
+    assignmentAdmin(runtime, next, actor),
+    assignmentAdmin(runtime, { ...next, id: randomUUID() }, randomUUID()),
+  ]);
+  assert.equal(race.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(race.filter((r) => r.status === "rejected").length, 1);
+  await pool.query(
+    "UPDATE outreach.households SET suppressed=true WHERE id=$1",
+    [doors[2]],
+  );
+  await assert.rejects(
+    () =>
+      assignmentAdmin(
+        runtime,
+        { ...move, id: randomUUID(), householdIds: [doors[2]] },
+        actor,
+      ),
+    denied(409),
+  );
+  await pool.query(
+    "UPDATE outreach.households SET suppressed=false WHERE id=$1",
+    [doors[2]],
+  );
+  const last = await assignmentAdmin(
+    runtime,
+    { ...move, id: randomUUID(), householdIds: [doors[2]] },
+    actor,
+  );
+  assert.deepEqual(
+    last.workspace.assignments.find((a) => a.id === source)!.householdIds,
+    [],
+  );
+  assert.equal(
+    (await downloadHostedAssignment(runtime, issued.token!)).households.length,
+    0,
+  );
+  assert.equal(
+    (await downloadHostedAssignment(runtime, issued.token!))
+      .supersededHouseholdIds!.length,
+    3,
+  );
+  const delayed = makeVisit(source, doors[2]);
+  await submitHostedOperation(runtime, issued.token!, delayed);
+  const lateRetry = await assignmentAdmin(runtime, move, actor);
+  assert.deepEqual(
+    lateRetry.workspace.assignments.find((a) => a.id === source)!.householdIds,
+    [],
+  );
+  // Ended events cannot start a new handoff.
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()-interval '1 hour' WHERE id=$1",
+    [event.savedId],
+  );
+  await assert.rejects(
+    () =>
+      assignmentAdmin(
+        runtime,
+        { ...move, id: randomUUID(), sourceId: move.id },
+        actor,
+      ),
+    denied(400),
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, issued.token!),
+    denied(403),
+  );
+  await assert.rejects(
+    () =>
+      submitHostedOperation(
+        runtime,
+        issued.token!,
+        makeVisit(source, doors[2]),
+      ),
+    denied(422),
+  );
+  const latePending = {
+    ...makeVisit(source, doors[2]),
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  };
+  await submitHostedOperation(runtime, issued.token!, latePending);
+  await hostedFieldAdmin(
+    runtime,
+    {
+      action: "revoke",
+      assignmentId: source,
+      id: issued.credentialId!,
+      confirmed: true,
+    },
+    actor,
+  );
+  await assert.rejects(
+    () => submitHostedOperation(runtime, issued.token!, makeVisit()),
+    denied(403),
+  );
+  for (const sql of [
+    "SELECT * FROM outreach.reassignments",
+    "UPDATE outreach.memberships SET state='superseded'",
+    "SET ROLE jco_assignment_executor",
+  ])
+    await assert.rejects(() => reader.query(sql), /permission denied/);
+  for (const role of ["anon", "authenticated", "service_role"])
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_function_privilege($1,'outreach.reassign_households(uuid,uuid,uuid,text,uuid[],uuid)','EXECUTE') allowed",
+          [role],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaign.id],
+  );
+  await assert.rejects(
+    () => assignmentAdmin(runtime, move, actor),
+    denied(404),
+  );
+  await pool.query("DELETE FROM outreach.campaigns WHERE id=$1", [campaign.id]);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.reassignments WHERE campaign_id=$1",
+        [campaign.id],
+      )
+    ).rows[0].n,
     0,
   );
 });

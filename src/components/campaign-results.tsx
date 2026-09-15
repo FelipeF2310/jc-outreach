@@ -196,6 +196,9 @@ function AssignmentResults({ assignmentId }: { assignmentId: string }) {
                       {v.unit ? ` · Unit ${v.unit}` : ""}
                     </strong>
                     <small>{outcomes[v.result]}</small>
+                    {v.superseded && (
+                      <small>Reassigned door · original visit retained</small>
+                    )}
                   </div>
                   <span className="received">Received</span>
                 </div>

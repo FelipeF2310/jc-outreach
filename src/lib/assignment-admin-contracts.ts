@@ -9,6 +9,19 @@ const label = z
 export const assignmentAdminRequest = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("workspace"), campaignId: z.uuid() }),
   z.strictObject({
+    action: z.literal("reassign"),
+    id: z.uuid(),
+    campaignId: z.uuid(),
+    sourceId: z.uuid(),
+    name: label,
+    householdIds: z
+      .array(z.uuid())
+      .min(1)
+      .max(1000)
+      .refine((ids) => new Set(ids).size === ids.length),
+    confirmed: z.literal(true),
+  }),
+  z.strictObject({
     action: z.literal("event"),
     campaignId: z.uuid(),
     id: z.uuid(),
@@ -37,6 +50,7 @@ export type AssignmentSave = Exclude<
   { action: "workspace" }
 >;
 export type AssignmentWorkspace = {
+  reassignmentReady?: boolean;
   campaignId: string;
   endAt: string;
   deletionAt: string;
@@ -56,5 +70,6 @@ export type AssignmentWorkspace = {
     name: string;
     kind: "building" | "scattered";
     householdIds: string[];
+    supersededHouseholdIds?: string[];
   }[];
 };

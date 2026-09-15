@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AssignmentFieldControls } from "./assignment-field-controls";
 import { CampaignResults } from "./campaign-results";
+import { ReassignDoors } from "./reassign-doors";
 import {
   assignmentAdminRequest,
   type AssignmentSave,
@@ -26,6 +27,8 @@ export function CampaignAssignments({
   const [eventOpen, setEventOpen] = useState(false);
   const [resultAssignment, setResultAssignment] = useState("");
   const builder = useRef<HTMLDivElement>(null);
+  const confirmation = useRef<HTMLParagraphElement>(null);
+  const running = useRef(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +44,9 @@ export function CampaignAssignments({
   const [picked, setPicked] = useState<string[]>([]);
   const storageKey = `jco-assignment-save:${administratorId}:${campaignId}`;
   const frozen = busy || !!pending || !storageReady;
+  useEffect(() => {
+    if (message) confirmation.current?.focus();
+  }, [message, workspace]);
   useEffect(() => {
     if (open && loaded) builder.current?.focus();
   }, [open, loaded]);
@@ -70,7 +76,7 @@ export function CampaignAssignments({
             "Pending save cannot be read. Contact the organizer; do not clear it to retry.",
           );
         setPending(parsed.data);
-        setOpen(true);
+        setOpen(parsed.data.action !== "reassign");
       }
       setStorageReady(true);
     } catch {
@@ -118,6 +124,8 @@ export function CampaignAssignments({
   async function run(
     request: AssignmentSave | { action: "workspace"; campaignId: string },
   ) {
+    if (running.current) return false;
+    running.current = true;
     setBusy(true);
     setError("");
     setMessage("");
@@ -172,6 +180,10 @@ export function CampaignAssignments({
           setEndDate("");
           setPicked([]);
           setMessage("Event saved. Choose its households below.");
+        } else if (request.action === "reassign") {
+          setMessage(
+            "Doors reassigned. Existing visits and links are preserved. Open Volunteer links on the new assignment to share it, and tell the previous volunteer to refresh.",
+          );
         } else {
           setAssignmentName("");
           setPicked([]);
@@ -182,13 +194,16 @@ export function CampaignAssignments({
           );
         }
       }
+      return true;
     } catch (failure) {
       setError(
         failure instanceof Error
           ? failure.message
           : "Unable to complete this step.",
       );
+      return false;
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }
@@ -286,6 +301,37 @@ export function CampaignAssignments({
                           ) : null;
                         })}
                       </details>
+                      {!!a.supersededHouseholdIds?.length && (
+                        <details className="assignment-doors">
+                          <summary>
+                            Reassigned doors ({a.supersededHouseholdIds.length})
+                          </summary>
+                          <p className="fine">
+                            No longer active here. Existing visits and permitted
+                            pending uploads are retained.
+                          </p>
+                          {a.supersededHouseholdIds.map((id) => {
+                            const h = workspace.households.find(
+                              (h) => h.id === id,
+                            );
+                            return h ? (
+                              <p key={id}>
+                                {h.address}
+                                {h.unit ? ` · Unit ${h.unit}` : ""}
+                              </p>
+                            ) : null;
+                          })}
+                        </details>
+                      )}
+                      {workspace.reassignmentReady &&
+                        a.householdIds.length > 0 && (
+                          <ReassignDoors
+                            assignment={a}
+                            workspace={workspace}
+                            disabled={frozen}
+                            onMove={run}
+                          />
+                        )}
                       {fieldReady && (
                         <AssignmentFieldControls
                           assignmentId={a.id}
@@ -560,7 +606,11 @@ export function CampaignAssignments({
             )}
           </>
         )}
-        {message && <p role="status">{message}</p>}
+        {message && (
+          <p role="status" tabIndex={-1} ref={confirmation}>
+            {message}
+          </p>
+        )}
         {error && (
           <p role="alert" className="error">
             {error}

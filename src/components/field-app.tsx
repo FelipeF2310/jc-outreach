@@ -216,8 +216,11 @@ export function FieldApp() {
   const pending = records.filter((r) => !r.receipt).length;
   const received = records.filter((r) => r.receipt).length;
   const visited = new Set(
-    records.flatMap((r) =>
-      r.operation.kind === "visit" ? [r.operation.householdId] : [],
+    records.flatMap(({ operation }) =>
+      operation.kind === "visit" &&
+      assignment?.households.some((h) => h.id === operation.householdId)
+        ? [operation.householdId]
+        : [],
     ),
   );
   const groups = assignment
@@ -323,6 +326,23 @@ export function FieldApp() {
               <p className="notice">
                 Field work has ended. You can synchronize previously saved work
                 during the upload window.
+              </p>
+            )}
+            {!!assignment.supersededHouseholdIds?.length && (
+              <p className="notice">
+                {assignment.supersededHouseholdIds.length}{" "}
+                {assignment.supersededHouseholdIds.length === 1
+                  ? "door has"
+                  : "doors have"}{" "}
+                been reassigned. Only your current doors appear below.
+                Previously saved work remains on this device and can still
+                synchronize while your link permits uploads.
+              </p>
+            )}
+            {assignment.households.length === 0 && (
+              <p className="notice">
+                No active doors remain in this assignment. Sync any pending
+                work; contact your organizer for your next assignment.
               </p>
             )}
             {reference ? (
@@ -458,13 +478,15 @@ export function FieldApp() {
                   </span>
                   <span>
                     {Math.round(
-                      (visited.size / assignment.households.length) * 100,
+                      assignment.households.length
+                        ? (visited.size / assignment.households.length) * 100
+                        : 0,
                     )}
                     %
                   </span>
                   <progress
                     value={visited.size}
-                    max={assignment.households.length}
+                    max={Math.max(1, assignment.households.length)}
                   />
                 </div>
                 {groups.map((buildingId, index) => {

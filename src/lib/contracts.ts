@@ -112,6 +112,7 @@ export type Assignment = {
   deletionAt: string;
   synthetic: true;
   households: Household[];
+  supersededHouseholdIds?: string[];
   programs: {
     id: ProgramId;
     name: string;

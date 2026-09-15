@@ -23,6 +23,20 @@ export async function assignmentAdmin(
     return await db.transaction(async (tx) => {
       await requireHostedReader(tx);
       let savedId: string | undefined;
+      if (request.action === "reassign") {
+        const saved = await tx.query<{ id: string }>(
+          "SELECT outreach.reassign_households($1,$2,$3,$4,$5::uuid[],$6) AS id",
+          [
+            request.id,
+            request.campaignId,
+            request.sourceId,
+            request.name,
+            request.householdIds,
+            actor,
+          ],
+        );
+        savedId = saved.rows[0]?.id;
+      }
       if (request.action === "event") {
         const saved = await tx.query<{ id: string }>(
           "SELECT outreach.create_outreach_event($1,$2,$3,$4,$5) AS id",
@@ -78,7 +92,7 @@ export async function assignmentAdmin(
         503,
         "Assignment preparation needs its database update. Existing campaigns and imports are unchanged.",
       );
-    if (code === "JA001")
+    if (code === "JA001" || code === "JR404")
       throw new DomainError(
         404,
         "This imported campaign is unavailable or expired.",
@@ -87,6 +101,16 @@ export async function assignmentAdmin(
       throw new DomainError(
         400,
         "Check the event date and selected households. Use an active event within the campaign, unsuppressed doors, and one building for a building run.",
+      );
+    if (code === "JR422")
+      throw new DomainError(
+        400,
+        "Choose an active event, a new assignment name and valid doors. No doors were moved.",
+      );
+    if (code === "JR409")
+      throw new DomainError(
+        409,
+        "The selected doors or save details changed. Refresh assignments before trying again. No partial reassignment was saved.",
       );
     if (code === "JA003")
       throw new DomainError(

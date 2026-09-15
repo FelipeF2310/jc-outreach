@@ -138,6 +138,23 @@ export async function saveOperation(input: Operation) {
         "Field work has ended or this assignment is unavailable. Previously saved work is unchanged.",
       );
     }
+    // A refresh may remove reassigned doors while another tab still has an old form.
+    // Preserve the outbox, but do not create fresh outreach for a no-longer-active door.
+    if (
+      (operation.kind === "visit" &&
+        !current.assignment.households.some(
+          (h) => h.id === operation.householdId,
+        )) ||
+      (operation.kind === "building" &&
+        !current.assignment.households.some(
+          (h) => h.buildingId === operation.buildingId,
+        ))
+    ) {
+      await tx.done;
+      throw new Error(
+        "This door or building is no longer in your active assignment. Refresh the list. Previously saved work is unchanged.",
+      );
+    }
     current.sequence++;
     if (operation.kind === "visit" && operation.doNotContact) {
       const household = current.assignment.households.find(
