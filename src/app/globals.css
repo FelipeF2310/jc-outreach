@@ -24,6 +24,39 @@
 .campaign-import {
   margin-top: 20px;
 }
+.campaign-assignments {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.campaign-assignments form {
+  margin-top: 24px;
+}
+.campaign-assignments select {
+  appearance: none;
+  -webkit-appearance: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23263c34' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.campaign-assignments input[type="checkbox"] {
+  width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  margin: 0;
+}
+.campaign-assignments .check-row {
+  margin: 16px 0;
+}
 .campaign-list > .result-row > div {
   width: 100%;
   min-width: 0;

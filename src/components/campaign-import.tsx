@@ -85,8 +85,8 @@ export function CampaignImport({
             · {saved.counts.buildings} buildings saved.
           </p>
           <p className="fine">
-            This synthetic source cannot be replaced. Hosted assignment creation
-            is the next development step.
+            This synthetic source cannot be replaced. Event and assignment
+            preparation appears below when its database update is ready.
           </p>
         </>
       ) : (

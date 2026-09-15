@@ -31,6 +31,7 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 - [ ] C03: An uncertain/retried creation uses the same request ID; identical retries create one record, changed content conflicts, and direct runtime table writes remain denied.
 - [ ] C04: The additive hosted migration preserves existing data and permissions, and missing migration produces an actionable setup error rather than enabling owner-level runtime access.
 - [ ] C05: Existing campaign → built-in synthetic preview → explicit approval → finalization → refresh restores the receipt; hosted duplicate retry preserves four people, three households and two buildings. Migration 004 is applied and the owner reports the import flow works; remaining hosted negative/duplicate-retry evidence is still required. Local tests pass.
+- [ ] C06: Imported synthetic campaign → event → selected household assignment → reload restores saved assignments; one building run respects natural unit order, scattered selection preserves manual order, and competing saves cannot duplicate a door within an event. Migration 005 and actual hosted UI confirmation remain pending; this slice issues no volunteer links.
 
 ## Local persistence and synchronization
 

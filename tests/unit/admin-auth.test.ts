@@ -15,6 +15,7 @@ import {
 import { hostedDatabase, postgresOptions } from "../../src/server/postgres";
 import { createAdministratorCampaign } from "../../src/server/admin-campaigns";
 import { importAdministratorExample } from "../../src/server/admin-imports";
+import { prepareAdministratorAssignment } from "../../src/server/admin-assignments";
 import type { Database } from "../../src/server/db-contract";
 
 const config: AdminConfig = {
@@ -200,6 +201,43 @@ test("synthetic import endpoints authorize before reading input or opening a dat
       assert.equal(response.status, status);
       assert.match(response.headers.get("cache-control")!, /no-store/);
     }
+  }
+  assert.equal(opened, 0);
+});
+
+test("assignment preparation authenticates before opening a database", async () => {
+  let opened = 0;
+  const database = (): Database => {
+    opened++;
+    throw new Error("Must not open database");
+  };
+  for (const [req, fake, status] of [
+    [request({ action: "workspace", campaignId: user.id }), provider(), 401],
+    [
+      request({ action: "workspace", campaignId: user.id }, cookie()),
+      provider({ email: "unapproved@example.test" }),
+      403,
+    ],
+    [
+      new NextRequest(`${config.origin}/api/admin/assignments`, {
+        method: "POST",
+        headers: {
+          Origin: "https://untrusted.example.test",
+          "X-JCO-Admin": "1",
+          Cookie: cookie(),
+        },
+      }),
+      provider(),
+      403,
+    ],
+  ] as const) {
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => prepareAdministratorAssignment(req, ctx, cfg, database),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, status);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
   }
   assert.equal(opened, 0);
 });

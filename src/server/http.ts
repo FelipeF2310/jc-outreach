@@ -29,10 +29,10 @@ export function requireDemo(request: Request, admin = false) {
 }
 export const tokenFrom = (r: Request) =>
   r.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-export async function readOperation(request: Request) {
+export async function readOperation(request: Request, maxBytes = 16384) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new DomainError(415, "Expected JSON.");
-  if (Number(request.headers.get("content-length") ?? 0) > 16384)
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes)
     throw new DomainError(413, "Record is too large.");
   const reader = request.body?.getReader();
   if (!reader) throw new DomainError(400, "Record is missing.");
@@ -42,7 +42,7 @@ export async function readOperation(request: Request) {
     const { value, done } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > 16384) {
+    if (total > maxBytes) {
       await reader.cancel();
       throw new DomainError(413, "Record is too large.");
     }

@@ -2,7 +2,7 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
-Administrator sign-in, restricted Supabase access, campaign creation/reload and synthetic household import are working; the owner reported successful import use after migration 004. The local field/offline/sync workflow is tested, but the hosted assignment-to-volunteer connection is still to be built. The next slice is event and assignment preparation. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
+Administrator sign-in, restricted Supabase access, campaign creation/reload and synthetic household import are working; the owner reported successful import use after migration 004. Event/assignment preparation is implemented locally and awaits hosted migration 005 and the owner's save/reload check. The local field/offline/sync workflow is tested, but hosted volunteer links/download/sync are not connected or issued by the new assignment builder. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
 
 ## Established requirements
 

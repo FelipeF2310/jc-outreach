@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-The owner confirmed live campaign creation/reload and reported successful synthetic import use after migration 004, then authorized the next development steps and asked that the checkpoint discussion be retained as our roadmap. [ROADMAP.md](ROADMAP.md) records that sequence and its engineering commitments. The next bounded slice is event and assignment preparation, followed by hosted private-link field connectivity. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+The owner confirmed live campaign creation/reload and reported successful synthetic import use after migration 004, then authorized the next development steps and asked that the checkpoint discussion be retained as our roadmap. [ROADMAP.md](ROADMAP.md) records that sequence and its engineering commitments. Event/assignment preparation is implemented locally; hosted migration 005 and owner save/reload verification are pending. Hosted private-link field connectivity follows separately. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
 ## Prepared
 
@@ -39,7 +39,7 @@ PRD revision verification at the earlier documentation milestone: the saved docu
 
 ## Still required before the field MVP / real-data launch
 
-- Verify live Supabase password sign-in, allowlist, rate limits and a secure recovery process; connect the restricted hosted TLS/pooler database. The database adapter, administrator boundary and restricted read-only runtime role now have local tests; expanded runtime privileges and hosted verification remain required.
+- Complete HTTPS sign-in/allowlist, rate-limit and secure-recovery verification. Live local-app sign-in and restricted TLS/pooler connectivity are established; those successes do not close the HTTPS deployment/abuse/recovery gates. Expanded privileges require bounded functions and corresponding hosted verification.
 - Production administrator-authorized CSV upload path and provenance procedure; full campaign/event/assignment administration and supersession. The import core and synthetic rehearsal now exist, as detailed below.
 - Help/correction administration, associated-content revision and withdrawal review, remaining conversation details, completion markers and full assignment lifecycle UI.
 - Scheduled deletion and failure visibility, production retention integration, backup/restore safeguards, actual update-with-pending-data tests. Synthetic rehearsal deadlines now use tested New York calendar-day arithmetic.
@@ -189,7 +189,21 @@ The owner supplied successful import-update output starting at 18:41:39 UTC: own
 
 Migration 004 is now applied: do not edit it or rerun initialization. Next is the owner's explicit preview/approval/finalize/reload test on one existing practice campaign. Multiple active campaigns were observed; no duplicates were inferred or deleted. No real resident data, deployment or GitHub changes occurred. Only status documentation changed after this read-only verification, so application suites were not rerun.
 
-## One-time PRD revision record
+## Event/assignment preparation slice — 2026-09-15
+
+Saved the previous campaign/import milestone and owner-agreed roadmap in local commit `873cede`; no push or deployment. The next bounded slice now implements an authenticated organizer workspace over finalized synthetic imports, event creation, building/household selection, natural unit order, manually ordered scattered doors, atomic assignment save and automatic saved-summary restoration. Private volunteer links are deliberately not issued: hosted field endpoints remain the next slice.
+
+Additive migration 005 creates an Events table and scoped assignment memberships while preserving legacy rows. Composite foreign keys guard campaign/event/household relationships; a partial unique index rejects competing active assignments for the same event/door. A dedicated non-login executor exposes only three reviewed security-definer functions to the restricted runtime. Per-save-ID advisory locks and immutable payload comparison make concurrent/ambiguous retries idempotent. Same ID/different content conflicts; different events may legitimately revisit a household. Suppressed and cross-campaign doors reject. Event form dates explicitly mean 5:00 PM New York time and cannot extend beyond the campaign; campaign retention is unchanged.
+
+The browser keeps an uncertain save request in this tab's administrator/campaign-scoped session storage, freezes edits until acknowledgment or known rejection, and restores the same retry ID after reload. Organizer workspace responses contain addresses/units/counts, not source matching fields or private credentials. Built-in synthetic imports remain the only population. Migration 005 is not yet applied to Supabase and no hosted events/assignments were created by this implementation work.
+
+Local verification so far: 65 unit/server tests, seven isolated native PostgreSQL tests, production build/typecheck and formatting pass. Native tests include a non-superuser migration operator, replay, concurrent identical retries and competing assignment IDs, atomic conflict rollback, foreign/suppressed doors, multi-building rejection, expired events, natural/manual ordering, direct runtime access denial and provider-client function denial. Browser checks found a WebKit native-select text overflow at 320px; bounded select text with ellipsis fixes the isolated reproduction without hiding page overflow. Final full-browser verification is recorded at handoff below. Browser administrator responses are mocks; local PostgreSQL is an isolated temporary cluster, not Supabase or physical-phone evidence.
+
+Prepared ignored `private/update-assignments.command`: explicit ASSIGNMENT-UPDATE confirmation, hidden owner password via stdin, verified TLS, fixed-stage error reporting, no credential persistence or reset. Next required action: owner runs the additive update, followed by independent restricted-runtime verification and the live event/assignment save/reload smoke test. No real CSV needed at this step.
+
+Final handoff: all 32 Chromium/WebKit tests pass on the final production build, alongside 65 unit/server tests and seven native PostgreSQL tests. Inspected synthetic WebKit builder/saved-summary screenshots; 320/390px no-overflow checks pass. Formatting, whitespace, helper shell syntax and ignored-private-file checks pass; PRD checksum is unchanged. The final local server was restarted on port 3000. Migration 005 remains unapplied pending the owner's hidden-password Terminal step; browser mocks do not prove hosted save/reload or physical-phone readiness. Completed source/docs/tests are being saved in a separate local checkpoint, with no push or deployment.
+
+## One-time PRD revision details
 
 Checkpoint note (2026-09-15): reviewed the accumulated campaign/import source and tests, staged only project source/docs/configuration, and scanned staged paths plus secret-key patterns. Operational files and credentials remain ignored and unstaged. The staged whitespace check reports one trailing blank line in already-applied migration 004; preserve its exact bytes/checksum rather than editing an applied migration for formatting. This exception has no SQL semantic effect. No GitHub push or deployment is included in the local checkpoint.
 

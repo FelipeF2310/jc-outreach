@@ -39,6 +39,7 @@ export async function verifyReader(db: Database) {
         AND (NOT coalesce((
             (p.oid = to_regprocedure('outreach.create_synthetic_campaign(uuid,text,date,uuid)') AND owner_role.rolname = 'jco_campaign_executor')
             OR (p.oid IN (to_regprocedure('outreach.finalize_synthetic_import(uuid,text,uuid)'), to_regprocedure('outreach.synthetic_import_status()')) AND owner_role.rolname = 'jco_import_executor')
+            OR (p.oid IN (to_regprocedure('outreach.assignment_workspace(uuid)'), to_regprocedure('outreach.create_outreach_event(uuid,uuid,text,date,uuid)'), to_regprocedure('outreach.prepare_assignment(uuid,uuid,uuid,text,text,uuid[],uuid)')) AND owner_role.rolname = 'jco_assignment_executor')
           ), false)
           OR NOT p.prosecdef
           OR owner_role.rolcanlogin OR owner_role.rolsuper OR owner_role.rolbypassrls

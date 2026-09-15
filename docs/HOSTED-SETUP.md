@@ -105,13 +105,23 @@ That certificate was retrieved over verified HTTPS and saved locally as ignored 
 - Wrong-password rejection, confirmed-account sign-in, cookie renewal, reload and sign-out work on the actual HTTPS origin. Unconfirmed accounts remain denied.
 - Password rate limits and the approved recovery process are tested. Verify delivery separately if recovery uses email.
 - No access/refresh tokens in URLs, browser localStorage, JSON responses, analytics or logs; auth responses are not cached.
-- Verify the dedicated runtime role cannot select residents or credentials, write any data, or retrieve expired campaigns directly.
+- Verify the dedicated runtime role cannot directly select residents or credentials, write tables, or retrieve expired campaigns. Reviewed security-definer functions are its only expanded creation/import/assignment capabilities; do not describe the role as entirely read-only.
 - Remove an approved email from the allowlist and verify next-request denial.
 - Confirm Supabase API exposure, authentication rate limits, TLS/pooler, request logging (including password bodies), backups, costs and project environment isolation.
 
 Passing local mock-provider tests does not satisfy these hosted checks. Scheduled deletion, real-file ingress, full administration, hosted volunteer endpoints and physical phones remain future work.
 
 ## Local evidence and reproduction
+
+### Additive event/assignment update 005
+
+Status: prepared and locally tested; not yet applied to Supabase. Migrations 003 and 004 are already applied and must not be edited or rerun as initialization.
+
+The ignored `private/update-assignments.command` prompts for `ASSIGNMENT-UPDATE` and the existing **database-owner** password through hidden stdin. It runs `scripts/migrate-assignments.ts` with the verified CA and explicitly validated project/pooler configuration. It never puts the password in command arguments, source control, errors or saved application configuration. The runtime still uses its restricted reader connection.
+
+The update is one locked/checksummed transaction: verify the synthetic deployment and earlier migrations, add Events/membership constraints and three narrowly granted functions. It preserves existing campaigns, imported households, credentials and visits. It does not create assignments, issue volunteer links, import files, run deletion or reset the database. Failure rolls back the transaction; use its fixed stage/category output for diagnosis rather than rerunning bootstrap or deleting records.
+
+After success, independently run the restricted runtime audit and capability read without printing connection values or resident records. Refresh the existing signed-in campaign with the finalized synthetic import, open **Manage assignments**, create a practice event, select the two units in the fixture building, and save one assignment. Reload: its label and two-door count should remain. Record this as a hosted smoke check separately from the mocked browser tests. Hosted volunteer links/download/sync remain the next slice.
 
 `npm test` runs the actual Supabase SDK with an isolated fake provider transport; verifies identity checks, exact allowlist, cookie/CSRF handling, refresh and failures. No email is sent.
 

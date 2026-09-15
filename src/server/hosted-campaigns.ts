@@ -16,7 +16,7 @@ const campaignRequest = z.strictObject({
     .refine((date) => date >= "2000-01-01" && date <= "9998-12-31"),
 });
 
-async function requireHostedReader(tx: SqlConnection) {
+export async function requireHostedReader(tx: SqlConnection) {
   const marker = await tx.query<{ stage: string; role: string }>(
     "SELECT stage, current_user AS role FROM outreach.deployment WHERE singleton = true",
   );
@@ -93,8 +93,11 @@ export async function createHostedCampaign(
 export async function listHostedCampaigns(db: Database) {
   return db.transaction(async (tx) => {
     await requireHostedReader(tx);
-    const ready = await tx.query<{ ready: boolean }>(
-      "SELECT to_regprocedure('outreach.synthetic_import_status()') IS NOT NULL AS ready",
+    const ready = await tx.query<{
+      ready: boolean;
+      assignments_ready: boolean;
+    }>(
+      "SELECT to_regprocedure('outreach.synthetic_import_status()') IS NOT NULL AS ready, to_regprocedure('outreach.assignment_workspace(uuid)') IS NOT NULL AS assignments_ready",
     );
     const importReady = ready.rows[0]?.ready === true;
     const { rows } = await tx.query<{
@@ -115,6 +118,7 @@ export async function listHostedCampaigns(db: Database) {
       deletionAt: row.deletion_at.toISOString(),
       importReceipt: row.import_receipt ?? null,
       importReady,
+      assignmentsReady: ready.rows[0]?.assignments_ready === true,
     }));
   });
 }

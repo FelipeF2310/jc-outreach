@@ -12,7 +12,7 @@ An administrator selects three imported household doors, assigns them to a volun
 
 Deliver this in independently testable slices:
 
-1. **Event and assignment preparation (next):** separate events from campaigns, select imported households/buildings, order scattered doors, save an assignment, prevent duplicate active assignment in the same event, restore the organizer workspace after reload.
+1. **Event and assignment preparation (implemented locally; hosted update/check pending):** separate events from campaigns, select imported households/buildings, order scattered doors, save an assignment, prevent duplicate active assignment in the same event, restore the organizer workspace after reload. Migration 005 enables this synthetic-only slice; it creates no assignments or links by itself.
 2. **Private-link field connection:** issue/revoke scoped credentials; connect the existing volunteer download/offline/sync workflow to hosted storage with narrow privileges. Test end dates, the upload-only window and unauthorized household access. Do not issue a working-looking hosted link before its field endpoints exist.
 3. **Organizer operations:** received results, application-help and correction queues, suppression, reassignment/supersession, revisions and completion reporting. Retain legitimate offline work and distinguish last-known status from current unknown device state.
 4. **Launch safeguards:** scheduled deletion and failure handling; backup restoration/expiry; administrator recovery/rate limits; app-update preservation of pending work; HTTPS hosting and production log/body review; reviewed program content; both physical phones.

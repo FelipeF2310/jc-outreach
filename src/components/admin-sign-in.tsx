@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { CampaignCreate, type HostedCampaign } from "./campaign-create";
 import { CampaignImport } from "./campaign-import";
+import { CampaignAssignments } from "./campaign-assignments";
 
 type Identity = { id: string; email: string };
 export function AdminSignIn() {
@@ -209,6 +210,14 @@ export function AdminSignIn() {
                           setCampaignRefresh((value) => value + 1);
                         }}
                       />
+                      {campaign.importReceipt && (
+                        <CampaignAssignments
+                          campaignId={campaign.id}
+                          administratorId={identity.id}
+                          deletionAt={campaign.deletionAt}
+                          ready={campaign.assignmentsReady === true}
+                        />
+                      )}
                     </div>
                   </div>
                 ))

@@ -9,6 +9,7 @@ export type HostedCampaign = {
   deletionAt: string;
   importReceipt?: ImportReceipt | null;
   importReady?: boolean;
+  assignmentsReady?: boolean;
 };
 type Save = { id: string; name: string; endDate: string };
 
