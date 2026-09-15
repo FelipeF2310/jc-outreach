@@ -4,7 +4,7 @@ Status: synthetic field/import slices and administrator/database foundation impl
 
 ## Stack selection
 
-Latest addition (2026-09-15): locally tested household reassignment, with unapplied additive migration 010. The hosted operator and owner walkthrough remain pending. Earlier status notes below are historical.
+Latest addition (2026-09-15): household reassignment migration 010 is applied; independent restricted-runtime privilege/capability and workspace-read verification passed. The live handoff/reload walkthrough remains pending. Earlier status notes below are historical.
 
 ### Reassignment boundary
 

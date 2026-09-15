@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-Current handoff: household reassignment is implemented and locally verified; migration 010 is prepared, not applied. Next is the owner-operated update, restricted read-only verification and live synthetic handoff/reload check. Completion reporting follows separately. See the reassignment implementation entry below for evidence and limitations.
+Current handoff: migration 010 is applied and independent restricted read-only verification passed on 2026-09-15 at 22:30:32 UTC. Next is the owner's live synthetic handoff/reload check. Completion reporting follows separately. See the reassignment entries below for evidence and limitations.
 
 The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–009 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: the correction report/review/reopen happy path is now owner-confirmed; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
@@ -375,6 +375,12 @@ Native tests use an isolated PostgreSQL cluster, not Supabase: migration/replay 
 Final verification: 74 unit/server tests, 12 isolated native PostgreSQL tests and all 44 Chromium/WebKit browser tests pass (130 total). Production build, strict type check, formatting and whitespace checks pass. The helper passes zsh syntax checking and is ignored; applied migrations 002–009 and the PRD are unchanged. The synthetic WebKit screenshot was inspected; a missing line break before the do-not-contact description and singular confirmation wording were corrected before the final full browser run. No skipped tests. The local app was restarted with this build.
 
 Migration 010 and the ignored REASSIGNMENT-UPDATE helper are ready for owner input. The helper requires the existing owner password through hidden stdin and verified TLS, preserves runtime configuration/passwords, and creates no assignments/links or handoffs itself. No real CSV was read/imported, no dependencies were added, and no deployment or GitHub push was performed. Completion reporting, scheduled deletion, actual CSV ingress and physical-phone gates remain open.
+
+## Hosted reassignment verification — 2026-09-15
+
+The owner reported successful migration 010 from the run starting at 22:29:41 UTC: owner authentication and verified TLS passed, existing data/passwords were preserved, and no households were moved or links issued/revoked. Independent verification at 22:30:32 UTC used the saved restricted runtime over verified TLS in a READ ONLY transaction. The privilege audit passed; the reassignment function existed and was executable; the imported campaign workspace returned reassignment readiness and active/superseded membership projections. Three active synthetic campaigns, one imported workspace, one saved assignment and zero superseded memberships were observed. No identifiers, records or credentials were printed, and no records/settings were changed by the verification.
+
+Applied migrations 002–010 are now immutable. Do not repeat initialization or the completed update. Next: synchronize the old volunteer's pending work, move only synthetic Unit 10B into a new Practice Volunteer B assignment, reload administration, and refresh the old volunteer list. Confirm Unit 2A remains active in A, Unit 10B is active only in B, earlier visits remain, and the handoff itself creates no visit or credential. Live mutation/refresh, physical-device/offline and remaining launch gates are not proven by the read-only check. This milestone changes status documentation only; application tests were not rerun. No deployment or push.
 
 ## Information required for production configuration
 

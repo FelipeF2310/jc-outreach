@@ -113,7 +113,9 @@ Passing local mock-provider tests does not satisfy these hosted checks. Schedule
 
 ## Local evidence and reproduction
 
-### Household reassignment update 010 — prepared, not applied
+### Household reassignment update 010 — applied, capability verified
+
+The owner's run starting 2026-09-15 at 22:29:41 UTC succeeded. Independent read-only verification at 22:30:32 UTC passed the runtime privilege audit, reassignment capability check and imported-workspace reads: three active synthetic campaigns, one imported workspace, one assignment and zero superseded memberships. No records/settings were changed by verification. Do not rerun the completed migration; applied 002–010 are immutable. The operator procedure below is historical reference. The live synthetic handoff/reload walkthrough remains pending.
 
 Use the ignored `private/update-reassignment.command` only after local verification. Confirm **REASSIGNMENT-UPDATE**, then enter the existing database-owner password through hidden stdin, never chat. The helper uses verified TLS, the existing synthetic marker/checksum/transaction checks, and sanitized stage/category failures. It changes no passwords, issues/revokes no links, moves no doors, and does not initialize, reset or delete existing data. Applied 002–009 must not be edited. On failure, share only the fixed output; do not rerun bootstrap.
 
