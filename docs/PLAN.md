@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–009 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: correction review is connected with its live report/status walkthrough pending; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–009 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: the correction report/review/reopen happy path is now owner-confirmed; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
 ## Prepared
 
@@ -351,6 +351,14 @@ The ignored executable CORRECTION-UPDATE helper uses the existing hidden owner-p
 The owner reported successful migration 009 from the run starting at 22:04:05 UTC: verified TLS/owner authentication passed, existing records/passwords were preserved and no reports or review actions were created. Independent verification at 22:04:51 UTC used the saved restricted runtime over verified TLS in a READ ONLY transaction. The privilege audit passed; both correction-function capabilities existed and were executable; actual queue reads parsed successfully across three active synthetic campaigns. Zero correction reports existed at that time. No identifiers, report content or secrets were printed, and no records/settings changed during verification.
 
 Next: owner records a new synthetic person-specific correction, synchronizes it, then confirms review and reopening persist after reload. The migration/read checks do not prove that live mutation workflow or close C10/physical-device/production gates. Only status documentation changed; application suites were not rerun. No deployment or push occurred.
+
+## Owner-confirmed correction review — 2026-09-15
+
+On implementation checkpoint a8c9365, using the local app backed by live Supabase, the owner recorded a new synthetic Unit 2A visit as Spoke with resident, with Person moved attached only to Resident A Fixture, then synchronized successfully. The original test instructions omitted the required contact outcome; the walkthrough now specifies it explicitly for the synthetic scenario. Do not infer that the reported person was the conversation participant.
+
+The administrator queue showed one Open person-specific report. Mark reviewed survived a full reload under Reviewed reports (1), with zero open/one reviewed. Keep open survived another reload and restored the Mark reviewed action. Four total received visits remained throughout both review actions, two each for Units 2A and 10B; the fourth visit was the new field interaction, not an administrator status change. Refreshing the volunteer assignment still showed two listed residents in Unit 2A.
+
+This is owner-reported live happy-path evidence, not independent browser inspection or physical-device/offline acceptance. C10's remaining failure-path/expiry evidence stays open. No new database mutations, application changes, deployment or push were performed to record this confirmation. Documentation whitespace checks passed; application tests were not rerun. Next planned work is assignment lifecycle/supersession and completion reporting; the real CSV remains uninspected and unimported.
 
 ## Information required for production configuration
 
