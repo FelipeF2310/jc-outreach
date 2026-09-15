@@ -9,11 +9,13 @@ import {
 import {
   adminEndpoint,
   requireAdministrator,
-  sendAdminCode,
-  verifyAdminCode,
+  signInAdministrator,
   signOutAdministrator,
 } from "../../src/server/admin-auth";
-import { postgresOptions } from "../../src/server/postgres";
+import { hostedDatabase, postgresOptions } from "../../src/server/postgres";
+import { createAdministratorCampaign } from "../../src/server/admin-campaigns";
+import { importAdministratorExample } from "../../src/server/admin-imports";
+import type { Database } from "../../src/server/db-contract";
 
 const config: AdminConfig = {
   origin: "https://outreach.example.test",
@@ -71,6 +73,174 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+test("campaign POST authenticates before database access and takes its actor only from verified identity", async () => {
+  let opened = 0;
+  let parameters: unknown[] | undefined;
+  const db: Database = {
+    async query<T>(_sql: string, params?: unknown[]) {
+      if (!params)
+        return {
+          rows: [
+            { stage: "synthetic-preview", role: "jco_admin_reader" },
+          ] as T[],
+        };
+      parameters = params;
+      return { rows: [] };
+    },
+    async exec() {},
+    async transaction(work) {
+      return work(db);
+    },
+  };
+  const database = () => {
+    opened++;
+    return db;
+  };
+  const input = { id: user.id, name: "Practice", endDate: "2030-03-01" };
+  for (const [req, fake, expected] of [
+    [request(input), provider(), 401],
+    [
+      request(input, cookie()),
+      provider({ email: "unapproved@example.test" }),
+      403,
+    ],
+    [
+      new NextRequest(`${config.origin}/api/admin/campaigns`, {
+        method: "POST",
+        headers: {
+          Origin: "https://untrusted.example.test",
+          "X-JCO-Admin": "1",
+        },
+      }),
+      provider(),
+      403,
+    ],
+  ] as const) {
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => createAdministratorCampaign(req, ctx, cfg, database),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, expected);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+  }
+  assert.equal(opened, 0);
+  const req = request(input, cookie());
+  await adminEndpoint(
+    req,
+    (ctx, cfg) => createAdministratorCampaign(req, ctx, cfg, database),
+    { config, fetcher: provider().fetcher },
+  );
+  assert.deepEqual(parameters, [input.id, input.name, input.endDate, user.id]);
+  parameters = undefined;
+  const forged = request({ ...input, createdBy: "client-supplied" }, cookie());
+  const rejected = await adminEndpoint(
+    forged,
+    (ctx, cfg) => createAdministratorCampaign(forged, ctx, cfg, database),
+    { config, fetcher: provider().fetcher },
+  );
+  assert.equal(rejected.status, 400);
+  assert.equal(parameters, undefined);
+});
+
+test("synthetic import endpoints authorize before reading input or opening a database", async () => {
+  let opened = 0;
+  const database = (): Database => {
+    opened++;
+    throw new Error("Must not open database");
+  };
+  for (const action of ["preview", "finalize"]) {
+    const input = {
+      action,
+      campaignId: user.id,
+      caseId: "valid-couple-and-buildings",
+      digest: "0".repeat(64),
+      confirmed: true,
+    };
+    for (const [req, fake, status] of [
+      [request(input), provider(), 401],
+      [
+        request(input, cookie()),
+        provider({ email: "unapproved@example.test" }),
+        403,
+      ],
+      [
+        new NextRequest(`${config.origin}/api/admin/import`, {
+          method: "POST",
+          headers: {
+            Origin: "https://untrusted.example.test",
+            "X-JCO-Admin": "1",
+            Cookie: cookie(),
+          },
+        }),
+        provider(),
+        403,
+      ],
+      [
+        new NextRequest(`${config.origin}/api/admin/import`, {
+          method: "POST",
+          headers: {
+            Origin: config.origin,
+            "X-JCO-Admin": "1",
+            Cookie: cookie(),
+            "Content-Type": "text/csv",
+          },
+          body: "not an accepted upload",
+        }),
+        provider(),
+        415,
+      ],
+    ] as const) {
+      const response = await adminEndpoint(
+        req,
+        (ctx, cfg) => importAdministratorExample(req, ctx, cfg, database),
+        { config, fetcher: fake.fetcher },
+      );
+      assert.equal(response.status, status);
+      assert.match(response.headers.get("cache-control")!, /no-store/);
+    }
+  }
+  assert.equal(opened, 0);
+});
+
+test("missing database configuration explains setup only after authorization and preserves the session", async (t) => {
+  const overrides = {
+    JCO_HOSTED_STAGE: "synthetic-preview",
+    JCO_SYNTHETIC_ONLY: "",
+    DATABASE_URL: "",
+  };
+  const prior = Object.fromEntries(
+    Object.keys(overrides).map((key) => [key, process.env[key]]),
+  );
+  t.after(() => {
+    for (const [key, value] of Object.entries(prior)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  Object.assign(process.env, overrides);
+  const fake = provider();
+  const work: Parameters<typeof adminEndpoint>[1] = async (ctx, cfg) => {
+    await requireAdministrator(ctx.client, cfg);
+    hostedDatabase();
+    return {};
+  };
+  const denied = await adminEndpoint(request(), work, {
+    config,
+    fetcher: fake.fetcher,
+  });
+  assert.equal(denied.status, 401);
+  assert.doesNotMatch(await denied.text(), /Database setup/);
+  const response = await adminEndpoint(request(undefined, cookie()), work, {
+    config,
+    fetcher: fake.fetcher,
+  });
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /Database setup is incomplete/);
+  assert.equal(response.headers.getSetCookie().length, 0);
+  assert.match(response.headers.get("cache-control")!, /no-store/);
+});
 function provider(
   overrides: {
     confirmed?: boolean;
@@ -101,8 +271,6 @@ function provider(
         },
         401,
       );
-    if (path.endsWith("/otp")) return json({});
-    if (path.endsWith("/verify")) return json(session());
     if (path.endsWith("/token")) return json(session());
     if (path.endsWith("/user"))
       return json({
@@ -157,7 +325,7 @@ test("administrator requests require the configured origin and custom header; de
   for (const headers of cases) {
     assert.throws(() =>
       requireAdminOrigin(
-        new Request(`${config.origin}/api/admin/send-code`, {
+        new Request(`${config.origin}/api/admin/sign-in`, {
           method: "POST",
           headers,
         }),
@@ -167,29 +335,38 @@ test("administrator requests require the configured origin and custom header; de
   }
 });
 
-test("email code delivery disables signup and gives the same message to a non-allowlisted caller", async () => {
-  const fake = provider();
+test("unapproved emails and wrong passwords receive the same denial without signup or email delivery", async () => {
+  const fake = provider({ reject: true });
   const send = (email: string) => {
-    const req = request({ email });
-    return adminEndpoint(req, (ctx, cfg) => sendAdminCode(req, ctx, cfg), {
-      config,
-      fetcher: fake.fetcher,
-    });
+    const req = request({ email, password: "synthetic-wrong-password" });
+    return adminEndpoint(
+      req,
+      (ctx, cfg) => signInAdministrator(req, ctx, cfg),
+      {
+        config,
+        fetcher: fake.fetcher,
+      },
+    );
   };
   const accepted = await send(config.emails[0]);
   const denied = await send("stranger@example.test");
+  assert.equal(accepted.status, 401);
+  assert.equal(denied.status, 401);
   assert.deepEqual(await accepted.json(), await denied.json());
-  assert.equal(fake.calls.filter((c) => c.path.endsWith("/otp")).length, 1);
-  assert.equal(fake.calls[0].body?.create_user, false);
+  assert.equal(fake.calls.length, 1);
+  assert.equal(fake.calls[0].path, "/auth/v1/token");
   assert.match(accepted.headers.get("cache-control")!, /no-store/);
 });
 
 test("verified provider identity gets HTTP-only scoped cookies and no tokens in JSON", async () => {
   const fake = provider(),
-    req = request({ email: config.emails[0], code: "123456" });
+    req = request({
+      email: " Organizer@example.test ",
+      password: " synthetic-password ",
+    });
   const response = await adminEndpoint(
     req,
-    (ctx, cfg) => verifyAdminCode(req, ctx, cfg),
+    (ctx, cfg) => signInAdministrator(req, ctx, cfg),
     { config, fetcher: fake.fetcher },
   );
   assert.equal(response.status, 200);
@@ -197,6 +374,10 @@ test("verified provider identity gets HTTP-only scoped cookies and no tokens in 
     administrator: { id: user.id, email: user.email },
   });
   const cookies = response.headers.getSetCookie().join(";");
+  assert.doesNotMatch(cookies, /synthetic-password/);
+  assert.equal(fake.calls[0].body?.password, " synthetic-password ");
+  assert.equal(fake.calls[0].body?.email, user.email);
+  assert.ok(fake.calls.every((c) => !/\/(otp|verify|signup)$/.test(c.path)));
   for (const pattern of [
     /HttpOnly/i,
     /Secure/i,
@@ -206,7 +387,7 @@ test("verified provider identity gets HTTP-only scoped cookies and no tokens in 
     assert.match(cookies, pattern);
   assert.ok(
     fake.calls.some((c) => c.path.endsWith("/user")),
-    "fresh provider verification is required after OTP",
+    "fresh provider verification is required after password sign-in",
   );
 });
 
@@ -275,20 +456,79 @@ test("missing session never reaches protected work; removing allowlist access ta
   assert.equal(accessed, false);
 });
 
-test("wrong codes and unexpected auth input reject without session cookies or provider error leakage", async () => {
+test("wrong passwords and invalid auth input reject without session cookies or provider error leakage", async () => {
   const fake = provider({ reject: true });
   for (const body of [
-    { email: user.email, code: "123456" },
-    { email: user.email, code: "123456", administrator: true },
+    { email: user.email, password: "synthetic-password" },
+    { email: user.email, password: "synthetic-password", administrator: true },
+    { email: user.email },
+    { email: user.email, password: "" },
+    { email: user.email, password: "x".repeat(1025) },
+    { email: user.email, password: 123456 },
   ]) {
     const req = request(body);
     const response = await adminEndpoint(
       req,
-      (ctx, cfg) => verifyAdminCode(req, ctx, cfg),
+      (ctx, cfg) => signInAdministrator(req, ctx, cfg),
       { config, fetcher: fake.fetcher },
     );
     assert.ok([400, 401].includes(response.status));
+    assert.equal(response.headers.getSetCookie().length, 0);
     assert.doesNotMatch(await response.text(), /provider secret/);
+  }
+  assert.equal(
+    fake.calls.length,
+    1,
+    "invalid input must not reach the provider",
+  );
+});
+
+test("password sign-in rejects unconfirmed or unauthorized provider identity and clears issued cookies", async () => {
+  for (const override of [
+    { confirmed: false },
+    { anonymous: true },
+    { email: "other@example.test" },
+  ]) {
+    const fake = provider(override);
+    const req = request({ email: user.email, password: "synthetic-password" });
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => signInAdministrator(req, ctx, cfg),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, 403);
+    assert.ok(response.headers.getSetCookie().length > 0);
+    assert.ok(
+      response.headers
+        .getSetCookie()
+        .every((value) => /Max-Age=0/i.test(value)),
+    );
+  }
+});
+
+test("password sign-in safely reports rate limiting and provider outages", async () => {
+  for (const [providerStatus, expected] of [
+    [429, 429],
+    [502, 503],
+  ]) {
+    const req = request({ email: user.email, password: "synthetic-password" });
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => signInAdministrator(req, ctx, cfg),
+      {
+        config,
+        fetcher: async () =>
+          json(
+            { message: "SYNTHETIC provider secret", code: "test_error" },
+            providerStatus,
+          ),
+      },
+    );
+    assert.equal(response.status, expected);
+    assert.doesNotMatch(
+      await response.text(),
+      /provider secret|synthetic-password/,
+    );
   }
 });
 

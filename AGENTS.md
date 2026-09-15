@@ -2,7 +2,7 @@
 
 ## Read before changing this project
 
-Read [README.md](README.md) and [docs/PLAN.md](docs/PLAN.md) for scope and current status. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for infrastructure, access, offline, or data-lifecycle changes. Read the relevant cases in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) before implementing or verifying those behaviors.
+Read [README.md](README.md), [docs/PLAN.md](docs/PLAN.md) and the owner-agreed [docs/ROADMAP.md](docs/ROADMAP.md) for scope, current status and the delivery sequence. Keep their current-status summaries aligned with confirmed milestones. Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for infrastructure, access, offline, or data-lifecycle changes. Read the relevant cases in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) before implementing or verifying those behaviors.
 
 The implementation baseline is [docs/PRD.md](docs/PRD.md), containing the user's latest PRD and the explicitly authorized one-time review corrections. Read relevant PRD sections before implementing behavior. The user has authorized starting implementation. The first slice is local and synthetic only; further product-scope changes are not part of the one-time amendment authorization.
 
@@ -36,6 +36,6 @@ The implementation baseline is [docs/PRD.md](docs/PRD.md), containing the user's
 - `npm run format:check`: consistent source formatting.
 - `npm run test:e2e`: Chromium/WebKit browser tests against a production-mode synthetic build. Build first. Tests own port 3100 and use a separate ephemeral database; they do not use `.jco-demo`.
 
-Never deploy the local demo authorization as production auth. `JCO_SYNTHETIC_ONLY=1` requires loopback access and refuses Vercel or a configured `DATABASE_URL`. The separate `/api/admin` boundary uses Supabase provider verification and an explicit allowlist, but is enabled only in configured hosted synthetic-preview mode. No real-data mode or import endpoint exists. Read [hosted setup](docs/HOSTED-SETUP.md) before touching account/session/database configuration; owner bootstrap credentials must never be runtime credentials. Never invoke bootstrap on an existing project without explicit owner approval.
+Never deploy the local demo authorization as production auth. `JCO_SYNTHETIC_ONLY=1` requires loopback access and refuses Vercel or a configured `DATABASE_URL`. The separate `/api/admin` boundary uses Supabase provider verification and an explicit allowlist, but is enabled only in configured hosted synthetic-preview mode. No real-data mode or raw-upload endpoint exists; `/api/admin/import` accepts built-in synthetic case identifiers only. Read [hosted setup](docs/HOSTED-SETUP.md) before touching account/session/database configuration; owner bootstrap credentials must never be runtime credentials. Never invoke bootstrap on an existing project without explicit owner approval.
 
 The import parser/finalizer is implemented, but `/api/demo/import` accepts only built-in synthetic case identifiers, never uploaded rows/files. Do not open a raw-upload route until administrator authorization and infrastructure body/log handling are verified. Applied SQL migrations are checksum-checked: add a new migration instead of editing an applied file or resetting resident data.

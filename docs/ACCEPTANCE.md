@@ -21,6 +21,16 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 - [ ] A03: A provider-authenticated but non-allowlisted user cannot enter administrator endpoints.
 - [ ] A04: Simultaneous assignment requests cannot intentionally assign the same household twice in one event.
 - [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials.
+- [ ] A06: Approved confirmed administrators can sign in with email/password, reload, refresh sessions and sign out on the actual HTTPS origin. Incorrect passwords, unconfirmed accounts and non-allowlisted identities are rejected. No signup/email-code endpoint is exposed by the app.
+- [ ] A07: Passwords are absent from application storage, URLs, responses and hosting logs. Provider abuse/rate-limit controls and a secure administrator recovery process are tested before launch; recovery UI guidance alone is not sufficient.
+
+## Campaign administration
+
+- [x] C01: An approved administrator creates a synthetic campaign, reloads and retrieves the same saved record on the actual hosted connection. Owner confirmed on 2026-09-15 after automatic-list fix; local HTTP UI backed by live Supabase, not HTTPS deployment acceptance.
+- [ ] C02: The server/database rejects invalid dates and client-supplied authority/deletion fields; end/deletion timestamps use New York calendar arithmetic across DST.
+- [ ] C03: An uncertain/retried creation uses the same request ID; identical retries create one record, changed content conflicts, and direct runtime table writes remain denied.
+- [ ] C04: The additive hosted migration preserves existing data and permissions, and missing migration produces an actionable setup error rather than enabling owner-level runtime access.
+- [ ] C05: Existing campaign → built-in synthetic preview → explicit approval → finalization → refresh restores the receipt; hosted duplicate retry preserves four people, three households and two buildings. Migration 004 is applied and the owner reports the import flow works; remaining hosted negative/duplicate-retry evidence is still required. Local tests pass.
 
 ## Local persistence and synchronization
 

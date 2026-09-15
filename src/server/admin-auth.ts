@@ -11,9 +11,8 @@ import {
 import { readOperation } from "./http";
 
 const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
-const sendSchema = z.object({ email: emailSchema }).strict();
-const verifySchema = z
-  .object({ email: emailSchema, code: z.string().regex(/^\d{6}$/) })
+const signInSchema = z
+  .object({ email: emailSchema, password: z.string().min(1).max(1024) })
   .strict();
 const cookieName = "jco-admin-session";
 const cookieMatches = (name: string) =>
@@ -130,44 +129,32 @@ export async function adminEndpoint(
   }
 }
 
-export async function sendAdminCode(
+export async function signInAdministrator(
   request: NextRequest,
   context: Context,
   config: AdminConfig,
 ) {
-  const parsed = sendSchema.safeParse(await readOperation(request));
+  const parsed = signInSchema.safeParse(await readOperation(request));
   if (!parsed.success)
-    throw new DomainError(400, "Enter a valid email address.");
-  const message =
-    "If this is an approved, existing administrator account, a sign-in code will arrive by email.";
-  if (!config.emails.includes(parsed.data.email)) return { message };
-  const { error } = await context.client.auth.signInWithOtp({
-    email: parsed.data.email,
-    options: { shouldCreateUser: false },
-  });
-  // Do not disclose allowlist membership/provider account existence to the caller.
-  // Provider delivery and rate-limit configuration must be checked before launch.
-  if (error) return { message };
-  return { message };
-}
-
-export async function verifyAdminCode(
-  request: NextRequest,
-  context: Context,
-  config: AdminConfig,
-) {
-  const parsed = verifySchema.safeParse(await readOperation(request));
-  if (!parsed.success)
-    throw new DomainError(400, "Enter your email and six-digit code.");
+    throw new DomainError(400, "Enter a valid email address and password.");
+  const denied =
+    "Unable to sign in. Check your email and password or contact the website owner.";
   if (!config.emails.includes(parsed.data.email))
-    throw new DomainError(401, "The sign-in code is invalid or expired.");
-  const { error } = await context.client.auth.verifyOtp({
-    email: parsed.data.email,
-    token: parsed.data.code,
-    type: "email",
-  });
-  if (error)
-    throw new DomainError(401, "The sign-in code is invalid or expired.");
+    throw new DomainError(401, denied);
+  // Passwords are forwarded without trimming, never logged or persisted by the app.
+  // This existing-account API neither signs users up nor sends sign-in emails.
+  const { error } = await context.client.auth.signInWithPassword(parsed.data);
+  if (error?.status === 429)
+    throw new DomainError(
+      429,
+      "Too many sign-in attempts. Please wait before trying again.",
+    );
+  if (error && (!error.status || error.status >= 500))
+    throw new DomainError(
+      503,
+      "Administrator sign-in is temporarily unavailable. Please retry.",
+    );
+  if (error) throw new DomainError(401, denied);
   return { administrator: await requireAdministrator(context.client, config) };
 }
 

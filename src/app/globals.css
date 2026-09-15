@@ -17,6 +17,40 @@
   margin: 48px auto;
   padding: 24px;
 }
+.campaign-create,
+.campaign-list {
+  margin-top: 32px;
+}
+.campaign-import {
+  margin-top: 20px;
+}
+.campaign-list > .result-row > div {
+  width: 100%;
+  min-width: 0;
+}
+.campaign-import .result-row {
+  flex-wrap: wrap;
+}
+.campaign-import select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+.campaign-import h3 {
+  margin-top: 18px;
+}
+.campaign-import .check-row {
+  margin: 18px 0;
+}
+.campaign-import input[type="checkbox"] {
+  width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  margin: 0;
+}
 .admin-sign-in input {
   display: block;
   width: 100%;

@@ -1,4 +1,5 @@
 import { Pool, type PoolConfig } from "pg";
+import { DomainError } from "../lib/contracts";
 import type { Database, SqlConnection } from "./db-contract";
 
 export function postgresOptions(
@@ -71,7 +72,10 @@ export function hostedDatabase(): Database {
     process.env.JCO_HOSTED_STAGE !== "synthetic-preview" ||
     !process.env.DATABASE_URL
   ) {
-    throw new Error("Hosted synthetic database is not configured.");
+    throw new DomainError(
+      503,
+      "Database setup is incomplete. Your administrator sign-in is working, but campaigns are not connected yet.",
+    );
   }
   if (!globalPool.jcoHostedPool) {
     const pool = new Pool(

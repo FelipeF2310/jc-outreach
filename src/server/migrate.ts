@@ -2,11 +2,11 @@ import type { Database } from "./db-contract";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
-export async function migrate(db: Database) {
+export async function migrate(db: Database, names = ["002_imports.sql"]) {
   await db.exec(
     "CREATE TABLE IF NOT EXISTS outreach.schema_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())",
   );
-  for (const name of ["002_imports.sql"]) {
+  for (const name of names) {
     const sql = await readFile(
       `${process.cwd()}/src/server/migrations/${name}`,
       "utf8",

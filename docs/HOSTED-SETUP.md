@@ -1,6 +1,6 @@
 # Hosted synthetic-preview setup
 
-This is an operator handoff, not a record of completed deployment. No Supabase project, SMTP account, real administrator identity or hosted database has been connected. Resident data remains prohibited until the entire [acceptance gate](ACCEPTANCE.md) passes.
+This is an operator handoff, not a record of completed deployment. Administrator sign-in, empty synthetic initialization, reader setup, campaign creation and automatic list reload are confirmed. The additive campaign update succeeded and its restricted runtime passed independent live checks. The next synthetic-import migration 004 and live import/reload check remain pending. Resident data remains prohibited until the entire [acceptance gate](ACCEPTANCE.md) passes.
 
 ## Modes and boundaries
 
@@ -12,8 +12,8 @@ This is an operator handoff, not a record of completed deployment. No Supabase p
 
 Use a separate Supabase project containing only synthetic data. Confirm account/cost choices before provisioning anything. Configure settings through the provider dashboard or secret environment store, never Git or chat.
 
-1. Pre-create the explicitly approved administrators in Supabase Auth. Turn off public account signup. The app requests sign-in with `shouldCreateUser: false` and cannot create accounts.
-2. Set the **Magic Link** email template to show the six-digit `{{ .Token }}` code rather than a sign-in URL. Configure OTP length to six digits, expiry, provider rate limits and production-capable SMTP. Exercise delivery and rate limiting with an approved test identity. The app intentionally gives the same delivery message for missing, unapproved and provider-rejected accounts; that message is not delivery evidence.
+1. Pre-create the explicitly approved administrators in Supabase Auth with unique strong passwords, provided privately to their owners. Turn off public account signup. Confirm each account's email through the approved owner verification process; do not relax the app's confirmed-email requirement. The app uses `signInWithPassword`, never `signUp`, and cannot create accounts. The password is for the outreach Auth account, not necessarily the Supabase dashboard account.
+2. Keep email/password authentication enabled and review provider password policy and rate limits. Ordinary password sign-in needs no sign-in email or customized template. The owner approved this change on 2026-09-09 after the dashboard required custom SMTP to edit its email template. No email-code routes remain. Wrong credentials and unapproved emails receive the same generic rejection text; this is not a constant-time account-enumeration guarantee. Exercise live login and abuse controls before launch.
 3. Configure a short appropriate access-token lifetime and session settings. Refresh cookies are only accessible to server routes. Sign-out clears this browser's cookies and asks the provider to revoke this session's refresh capability; already issued access tokens may remain valid until expiry. Removing an identity from the app allowlist denies its next protected request.
 4. Configure the exact public origin and Supabase URL. All authentication is handled through same-origin API requests. There is no browser Supabase client or token-bearing callback URL.
 
@@ -31,11 +31,21 @@ Server settings:
 
 The current URL validator supports standard Supabase project hosts, not custom Auth domains. No environment values are sent to the browser. An HTTP-only cookie scoped to `/api/admin`, SameSite=Strict, and Secure on HTTPS holds the provider session. Each route creates a separate SDK client, validates identity through `getUser()`, checks the allowlist, and returns no-store responses including refreshed cookies. Personalized server rendering is not used, so no authentication proxy is required for page rendering.
 
+Passwords travel only in the same-origin sign-in POST and the server-to-provider request (HTTPS except the local loopback app). The app does not log or persist passwords, place them in URLs, or return them in responses. Password-manager autocomplete is supported; the app clears its password field after each attempt. Hosting request-body capture must still be reviewed.
+
+### Password recovery — required before launch
+
+Self-service recovery is not implemented in this preview. The UI directs administrators to the website owner, but that message alone is not a tested recovery procedure. Before real-data launch, implement and test either a secure owner-assisted process with identity verification and session handling or a complete reset flow with verified email delivery. If choosing email resets, configure production-capable delivery and test reset links, expiration and return URLs. Vercel web hosting does not itself configure Supabase email delivery. Do not request passwords in chat or commit them.
+
 ## Empty database preparation
+
+Current operator status (2026-09-15): empty synthetic initialization and reader configuration succeeded. Do not rerun initialization or the blank-settings helper, or reset the schema. Runtime settings are stored privately and the reader verification returned zero active campaigns. Share only a connection template with `[YOUR-PASSWORD]` unchanged in chat; enter actual owner/runtime passwords privately, outside Git. The owner connection and runtime reader connection are different credentials.
 
 Review the provider's connection mode first. Use a direct or session connection for owner bootstrap. The runtime adapter uses unnamed parameterized queries and transactions on one checked-out client; transaction-pooler compatibility and TLS must still be verified on the actual provider. Owner credentials never belong in the deployed runtime.
 
 After explicit operator approval, on the selected EMPTY synthetic project only:
+
+Local operator option: the ignored `private/prepare-database.command` asks for `PREPARE` confirmation and then reads the owner password without echo. It pipes the password to `scripts/prepare-hosted.ts --synthetic-preview --password-stdin`, not into command arguments, environment variables or a saved file. The environment supplies only the placeholder connection template and CA file path. This mode validates the session-pooler template against the configured Supabase project, URL-encodes password characters, bounds input and retains verified TLS. It invokes the same transactional `prepareHosted` routine, not a separate SQL copy. It creates no reader password or runtime connection; those are a separate step. Closing/losing the terminal response requires checking database state before attempting setup again, not assuming rollback or resetting it.
 
 1. Provide `JCO_MIGRATION_DATABASE_URL` securely in the operator process, together with `JCO_HOSTED_STAGE=synthetic-preview` and any required CA.
 2. Run `npm run db:prepare:synthetic`.
@@ -49,12 +59,55 @@ If bootstrap fails, its database transaction rolls back. Check permissions and c
 
 ## Required hosted smoke test
 
+### Additive campaign-creation update — prepared 2026-09-15
+
+**Completed: the owner's UPDATE started at 17:54:46 UTC on 2026-09-15 and reported success.** An independent restricted-runtime check at 17:57:12 UTC passed the reviewed privileges/RLS and confirmed the new column and executable function, with zero active synthetic campaigns. Do not edit applied migration 003 or rerun initialization/reset. The original generic failure's cause remains unknown. The following procedure is retained as history; the next step is administrator create/reload verification, not another UPDATE.
+
+The owner confirmed resetting the database-owner password in Database settings. Their read-only check failed with `password_rejected` at 17:44:07 UTC, then passed authentication/verified TLS and all required owner/permission/stage booleans at 17:47:48 UTC on 2026-09-15. The migration receipt remained absent. This proves the later connection works, not why the earlier password failed or that migration compatibility is established. Avoid further password resets.
+
+Compatibility precaution made before application: migration 003 quotes the actual operator identifier in its membership grant instead of using the special `CURRENT_USER` role specification. This follows the explicit-name workaround in [Supabase issue 2348](https://github.com/supabase/postgres/issues/2348); [issue 2325](https://github.com/supabase/postgres/issues/2325) also reports a crash with the special specification on Supabase PostgreSQL 17. Neither report proves this project crashed. Local native PostgreSQL permission tests pass with a non-superuser, quoted-name migration owner. No local Supabase image was available; the subsequent operator run and independent check above now confirm successful hosted application.
+
+Update procedure: `private/update-campaigns.command` requires UPDATE confirmation and hidden input of the **database-owner** password, not the reader password. It pipes that password to `scripts/migrate-campaigns.ts --password-stdin` with the reviewed project/CA. The CLI now emits a UTC timestamp and fixed failure stage/category without raw errors or connection details. Runtime settings are unchanged. If it fails, share only that output and stop; do not rerun the original initializer or reader-password helper.
+
+The command runs the additive/checksummed `003_campaign_creation.sql` migration transactionally against the existing synthetic deployment. It preserves prior records and adds campaign date/creator columns, a restricted non-login executor and one creation function. The existing runtime account retains read-only table grants but gains permission to call this bounded function. It receives no role membership, general table writes, resident access or DDL. Existing migrations/bootstrap SQL are unchanged. The operator retains administration of the new executor role for later migrations.
+
+After success, refresh `/admin`, create a practice campaign with a future end date, then reload and load campaigns. Confirm one record and its New York end/deletion timestamps. Retry an uncertain save without changing its request. Failure of an update must be investigated without resetting the database; the transaction preserves the previous schema on failure. Only the live administrator creation result remains pending for this handoff. No automated deletion, events, resident imports or deployment are introduced by this update.
+
+### Saved-campaign synthetic import update — prepared 2026-09-15
+
+Campaign creation and automatic list restoration are confirmed by the owner. Migration `004_synthetic_import.sql` completed in the owner's run starting at 18:41:39 UTC on 2026-09-15. Independent read-only verification at 18:42:12 UTC confirmed the restricted runtime privileges, both import functions and joined receipt/status read: three active campaigns, zero finalized imports, all ready. Do not edit applied 004 or rerun the update. The following procedure is retained as history; the next step is the owner's in-app preview/finalize/reload check.
+
+Use ignored `private/update-imports.command`, not the initializer or reader-password helper. Type `IMPORT-UPDATE`, then enter the existing **database-owner password** privately. The CLI uses the saved project/CA template with verified TLS and passes the password only through stdin. It applies 002/003 checksum checks plus the new 004 transactionally, preserving campaigns, prior receipts, role passwords and administrator accounts. Output is a timestamp and success or fixed stage/category; never share credentials. Stop after a failure and investigate without resetting or editing migration receipts.
+
+The update adds a non-login executor and two scoped functions: finalize only the embedded valid synthetic fixture, and read only import receipt metadata. It enables no arbitrary-row upload, general runtime table writes, direct resident reads, assignment issuance, automatic deletion or real-data mode. It does not itself import households. The embedded fixture is intentionally synthetic/minimized; it is not a second archive of a production CSV.
+
+After success, verify the actual runtime with `verifyReader` and check the new functions. Then refresh `/admin`, use **Import synthetic households** under the existing campaign, validate the valid example, review three household doors with four people, check the approval box, and finalize. Refresh and confirm **4 people · 3 households · 2 buildings saved** without reimporting. Test invalid examples on an empty practice campaign before finalizing; they must create no receipt or people. No real files should be supplied.
+
+### Local restricted reader handoff — 2026-09-15
+
+The ignored `private/connect-reader.command` provides the next operator step. It first checks the owner-only `.env.local` still contains empty database placeholders. After explicit CONNECT confirmation, it connects to the reviewed project with full TLS verification, checks the synthetic marker/reader role, and uses PostgreSQL's built-in [`psql \password`](https://www.postgresql.org/docs/16/app-psql.html#APP-PSQL-META-COMMAND-PASSWORD) command with SCRAM-SHA-256 to set only `jco_admin_reader`'s password. The owner enters the existing database-owner password, then chooses and confirms a separate strong reader password. No plaintext password is placed in SQL, shell history, command arguments or logs. Administrator Auth accounts and outreach tables are not changed.
+
+The owner then enters that same reader password once more. A bounded stdin input feeds `scripts/configure-reader.ts --password-stdin`, which builds the project-suffixed reader connection, verifies TLS and inspects role/schema/table/column/sequence privileges without probing writes against hosted data. It rejects role memberships, elevated flags, resident/credential access, outreach writes and missing RLS. It also executes the app's synthetic-stage/campaign read path. These checks cover the reviewed outreach boundary, not a comprehensive audit of every provider-owned schema or function.
+
+Only after successful verification does the script fill `DATABASE_URL` and `JCO_DATABASE_CA` in ignored `.env.local`. Other settings remain intact. Replacement is atomic, mode 0600, refuses symlinks/non-private files or concurrent content changes, and retains no backup copy. The owner password is never saved. This configures only the local session-pooler connection, not Vercel or a production deployment. Restart the app afterward and exercise the authenticated campaign request.
+
+If verification fails, local settings remain unchanged; the reader password may already have been set. Do not rerun initialization. Check the failure privately and retry reader configuration with the same reader password rather than assuming the database rolled back. Never print `.env.local` or include its contents in screenshots. The owner has now reported success, independently confirmed with the saved configuration; this helper should not be rerun against the populated settings.
+
+### Verified CA requirement — 2026-09-15
+
+The operator's pooler TLS check failed with the standard Homebrew CA bundle: OpenSSL reproduced `self-signed certificate in certificate chain` for Supabase Root 2021 CA. Obtain the Supabase CA through Database Settings → SSL configuration, not by trusting a certificate merely because the unverified database endpoint presents it. The official dashboard's [certificate URL configuration](https://github.com/supabase/supabase/blob/master/apps/studio/hooks/custom-content/custom-content.json) identifies the production download at `https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt`.
+
+That certificate was retrieved over verified HTTPS and saved locally as ignored `private/supabase-prod-ca-2021.crt`; the local password-prompt helper now references it with `sslmode=verify-full`. No system trust store was changed. The SHA-256 certificate fingerprint observed was `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`, valid until 2031-04-26. Check official provenance/rotation before future reuse. The runtime driver must also receive the reviewed PEM through `JCO_DATABASE_CA` when configured; fixing the operator helper alone does not configure the app's database. Never use `rejectUnauthorized: false`, downgrade to `sslmode=require`, or trust an arbitrary presented root to bypass this failure.
+
+### Remaining checks
+
 - Unauthenticated and authenticated-but-not-allowlisted requests cannot reach campaign queries.
-- Email delivery, invalid/expired code, successful sign-in, cookie renewal, reload and sign-out work on the actual HTTPS origin.
+- Wrong-password rejection, confirmed-account sign-in, cookie renewal, reload and sign-out work on the actual HTTPS origin. Unconfirmed accounts remain denied.
+- Password rate limits and the approved recovery process are tested. Verify delivery separately if recovery uses email.
 - No access/refresh tokens in URLs, browser localStorage, JSON responses, analytics or logs; auth responses are not cached.
 - Verify the dedicated runtime role cannot select residents or credentials, write any data, or retrieve expired campaigns directly.
 - Remove an approved email from the allowlist and verify next-request denial.
-- Confirm Supabase API exposure, SMTP/rate limits, TLS/pooler, request logging, backups, costs and project environment isolation.
+- Confirm Supabase API exposure, authentication rate limits, TLS/pooler, request logging (including password bodies), backups, costs and project environment isolation.
 
 Passing local mock-provider tests does not satisfy these hosted checks. Scheduled deletion, real-file ingress, full administration, hosted volunteer endpoints and physical phones remain future work.
 
@@ -66,4 +119,4 @@ Passing local mock-provider tests does not satisfy these hosted checks. Schedule
 
 `npm run test:e2e` includes the disabled-mode admin boundary and mocked-transport sign-in UI tests in both browser engines. Mocked UI tests are explicitly not provider authentication evidence.
 
-Primary references: [Supabase server-side clients](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [email codes](https://supabase.com/docs/guides/auth/auth-email-passwordless), [server-side session guidance](https://supabase.com/docs/guides/auth/server-side/advanced-guide), [database connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [node-postgres transactions](https://node-postgres.com/features/transactions), [TLS configuration](https://node-postgres.com/features/ssl).
+Primary references: [Supabase server-side clients](https://supabase.com/docs/guides/auth/server-side/creating-a-client), [password sign-in](https://supabase.com/docs/reference/javascript/auth-signinwithpassword), [server-side session guidance](https://supabase.com/docs/guides/auth/server-side/advanced-guide), [database connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [node-postgres transactions](https://node-postgres.com/features/transactions), [TLS configuration](https://node-postgres.com/features/ssl).

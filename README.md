@@ -2,7 +2,7 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
-The local **synthetic field workflow and import rehearsal** are implemented. This is not the completed field MVP or an approved real-data deployment. No real residents, production credentials, or external infrastructure have been loaded. The agreed PRD remains unchanged during implementation.
+Administrator sign-in, restricted Supabase access, campaign creation/reload and synthetic household import are working; the owner reported successful import use after migration 004. The local field/offline/sync workflow is tested, but the hosted assignment-to-volunteer connection is still to be built. The next slice is event and assignment preparation. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
 
 ## Established requirements
 
@@ -22,6 +22,7 @@ The local **synthetic field workflow and import rehearsal** are implemented. Thi
 - [Agent working instructions](AGENTS.md)
 - [Engineering foundation and sources](docs/ARCHITECTURE.md)
 - [Work status and revision record](docs/PLAN.md)
+- [Delivery roadmap](docs/ROADMAP.md)
 - [Acceptance checklist](docs/ACCEPTANCE.md)
 - [Hosted synthetic-preview setup](docs/HOSTED-SETUP.md)
 - [Synthetic fixture instructions](tests/fixtures/README.md)
@@ -63,9 +64,15 @@ Implemented: minimal household assignment download, generic offline shell, durab
 
 Also implemented: strict UTF-8 CSV validation, minimized source persistence, conservative household/building grouping, repeatable in-memory preview, atomic immutable finalization, duplicate-import protection, a synthetic import-to-assignment flow, and additive checksum-checked local database migrations.
 
-Also implemented: administrator email-code UI and server-only Supabase SDK session/allowlist boundary; secure scoped cookies and session refresh; PostgreSQL connection/transaction adapter; explicit empty-synthetic-database bootstrap and a read-only restricted campaign endpoint. These are locally tested foundations, not a connected live Supabase deployment. Visit `/admin` to see the sign-in screen; the local demo correctly reports that hosted sign-in is not configured.
+Also implemented: administrator email/password UI and server-only Supabase SDK session/allowlist boundary; secure scoped cookies and session refresh; PostgreSQL connection/transaction adapter; explicit empty-synthetic-database bootstrap and a read-only restricted campaign endpoint. These are locally tested foundations, not a verified live Supabase deployment. Visit `/admin` to see the sign-in screen; the local demo correctly reports that hosted sign-in is not configured. Use configured `npm start` for provider sign-in, not `npm run demo`. Volunteers remain private-link-only.
 
-Still required: connect and test the actual Supabase/SMTP/TLS/pooler setup with approved administrator identities; production CSV upload/approval handling; full campaign/event/assignment administration and reassignment; hosted volunteer endpoints with scoped runtime privileges; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
+New slice: authenticated synthetic campaign creation with server-calculated end/deletion timestamps, same-request retry protection, and a narrow database function executed by a dedicated non-login role. The form retains unconfirmed requests in this tab's session storage across reloads. Apply the reviewed operator-only update before trying a live save; existing campaign reads continue to work before the update. No automatic deletion, CSV ingress or hosted field workflow is enabled by this slice.
+
+New import slice: each saved campaign offers built-in fixture preview, explicit approval and atomic finalization after the reviewed 004 database update. The persisted receipt appears automatically on campaign reload. Invalid examples never persist; the database import function accepts no uploaded rows and contains only the fixed approved fixture. Hosted assignment creation follows separately.
+
+Still required: remaining import failure/retry launch evidence; administrator session/recovery/rate-limit acceptance; production CSV upload/approval handling; event/assignment administration and reassignment; hosted volunteer endpoints with scoped runtime privileges; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
+
+With hosted settings in `.env.local`, run the separate local practice harness using `DATABASE_URL= JCO_DATABASE_CA= JCO_HOSTED_STAGE= npm run demo`. This clears hosted access only for that process, not the saved configuration. Browser tests explicitly isolate these settings as well.
 
 Supabase PostgreSQL/Auth/Cron and Vercel remain the selected production direction. PGlite is a local PostgreSQL-compatible synthetic development/test harness, not a replacement production backend. Details and evidence are in [architecture](docs/ARCHITECTURE.md) and [work status](docs/PLAN.md).
 

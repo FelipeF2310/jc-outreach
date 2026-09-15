@@ -1,17 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
+import { CampaignCreate, type HostedCampaign } from "./campaign-create";
+import { CampaignImport } from "./campaign-import";
 
 type Identity = { id: string; email: string };
-type Campaign = { id: string; name: string; deletionAt: string };
 export function AdminSignIn() {
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(true);
   const [identity, setIdentity] = useState<Identity>();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [campaigns, setCampaigns] = useState<Campaign[]>();
+  const [campaigns, setCampaigns] = useState<HostedCampaign[]>();
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignsError, setCampaignsError] = useState("");
+  const [campaignRefresh, setCampaignRefresh] = useState(0);
   async function api(path: string, method = "GET", body?: unknown) {
     const response = await fetch(`/api/admin/${path}`, {
       method,
@@ -51,30 +54,54 @@ export function AdminSignIn() {
       active = false;
     };
   }, []);
-  async function run(action: "send" | "verify" | "signout" | "campaigns") {
+  const administratorId = identity?.id;
+  useEffect(() => {
+    if (!administratorId) return;
+    let active = true;
+    const controller = new AbortController();
+    setCampaignsLoading(true);
+    setCampaignsError("");
+    void fetch("/api/admin/campaigns", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "X-JCO-Admin": "1" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok)
+          throw new Error(body.error ?? "Unable to load saved campaigns.");
+        if (active) setCampaigns(body.campaigns);
+      })
+      .catch((failure: unknown) => {
+        if (active)
+          setCampaignsError(
+            failure instanceof Error
+              ? failure.message
+              : "Unable to load saved campaigns.",
+          );
+      })
+      .finally(() => {
+        if (active) setCampaignsLoading(false);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [administratorId, campaignRefresh]);
+  async function run(action: "signin" | "signout") {
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      if (action === "send") {
-        const result = await api("send-code", "POST", { email });
-        setSent(true);
-        setMessage(result.message);
-      } else if (action === "verify") {
-        const result = await api("verify-code", "POST", { email, code });
+      if (action === "signin") {
+        const result = await api("sign-in", "POST", { email, password });
         setIdentity(result.administrator);
-        setCode("");
       } else if (action === "signout") {
         await api("session", "DELETE");
         setIdentity(undefined);
         setCampaigns(undefined);
-        setSent(false);
-        setCode("");
         setMessage("Signed out.");
-      } else {
-        setCampaigns(undefined);
-        const result = await api("campaigns");
-        setCampaigns(result.campaigns);
       }
     } catch (e) {
       if (action === "signout") {
@@ -83,6 +110,7 @@ export function AdminSignIn() {
       }
       setError(e instanceof Error ? e.message : "Please retry.");
     } finally {
+      if (action === "signin" || action === "signout") setPassword("");
       setBusy(false);
     }
   }
@@ -105,22 +133,45 @@ export function AdminSignIn() {
           <div className="import-assignment-actions">
             <button
               className="primary"
-              disabled={busy}
-              onClick={() => void run("campaigns")}
+              disabled={busy || campaignsLoading}
+              onClick={() => setCampaignRefresh((value) => value + 1)}
             >
-              Load synthetic campaigns
+              {campaignsLoading
+                ? "Loading campaigns…"
+                : campaignsError
+                  ? "Retry loading campaigns"
+                  : "Refresh campaigns"}
             </button>
             <button disabled={busy} onClick={() => void run("signout")}>
               Sign out
             </button>
           </div>
+          {campaignsLoading && <p role="status">Loading saved campaigns…</p>}
+          {campaignsError && (
+            <p role="alert" className="error admin-feedback">
+              {campaignsError} Your saved campaigns have not been cleared. Retry
+              loading; do not re-enter them in the creation form.
+            </p>
+          )}
+          <CampaignCreate
+            key={identity.id}
+            administratorId={identity.id}
+            onCreated={(campaign) => {
+              setCampaigns((existing) => [
+                campaign,
+                ...(existing ?? []).filter((row) => row.id !== campaign.id),
+              ]);
+              // Replace any older list request with a fresh server read after saving.
+              setCampaignRefresh((value) => value + 1);
+            }}
+          />
           {campaigns && (
-            <div aria-label="Synthetic campaigns">
+            <div className="campaign-list" aria-label="Synthetic campaigns">
               <h2>Campaigns</h2>
               {campaigns.length === 0 ? (
                 <p>
-                  No active synthetic campaigns. Campaign creation is the next
-                  implementation step.
+                  No active synthetic campaigns. Create a practice campaign
+                  above.
                 </p>
               ) : (
                 campaigns.map((campaign) => (
@@ -128,12 +179,36 @@ export function AdminSignIn() {
                     <div>
                       <strong>{campaign.name}</strong>
                       <small>
+                        Campaign ends:{" "}
+                        {campaign.endAt
+                          ? new Date(campaign.endAt).toLocaleString("en-US", {
+                              timeZone: "America/New_York",
+                              timeZoneName: "short",
+                            })
+                          : "Not recorded in this earlier practice campaign"}
+                      </small>
+                      <small>
                         Deletion scheduled:{" "}
                         {new Date(campaign.deletionAt).toLocaleString("en-US", {
                           timeZone: "America/New_York",
                         })}{" "}
                         ET
                       </small>
+                      <CampaignImport
+                        campaignId={campaign.id}
+                        receipt={campaign.importReceipt}
+                        ready={campaign.importReady === true}
+                        onFinalized={(receipt) => {
+                          setCampaigns((values) =>
+                            values?.map((value) =>
+                              value.id === campaign.id
+                                ? { ...value, importReceipt: receipt }
+                                : value,
+                            ),
+                          );
+                          setCampaignRefresh((value) => value + 1);
+                        }}
+                      />
                     </div>
                   </div>
                 ))
@@ -146,7 +221,7 @@ export function AdminSignIn() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void run(sent ? "verify" : "send");
+            void run("signin");
           }}
         >
           <label className="import-label">
@@ -157,47 +232,32 @@ export function AdminSignIn() {
               required
               maxLength={254}
               value={email}
-              disabled={busy || sent}
+              disabled={busy}
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          {sent && (
-            <label className="import-label">
-              Six-digit sign-in code
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                required
-                maxLength={6}
-                value={code}
-                disabled={busy}
-                onChange={(event) => setCode(event.target.value)}
-              />
-            </label>
-          )}
+          <label className="import-label">
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              aria-describedby="password-help"
+              required
+              maxLength={1024}
+              value={password}
+              disabled={busy}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          <p id="password-help" className="fine">
+            Use your outreach administrator account password. If you need a
+            password or have forgotten it, contact the website owner.
+            Self-service password recovery is not available in this preview.
+          </p>
           <div className="import-assignment-actions">
             <button className="primary" disabled={busy} type="submit">
-              {busy
-                ? "Please wait…"
-                : sent
-                  ? "Verify code"
-                  : "Send sign-in code"}
+              {busy ? "Please wait…" : "Sign in"}
             </button>
-            {sent && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setSent(false);
-                  setCode("");
-                  setMessage("");
-                }}
-              >
-                Use a different email or request another code
-              </button>
-            )}
           </div>
         </form>
       )}
