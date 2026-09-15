@@ -2,7 +2,7 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
-Administrator sign-in, restricted Supabase access, campaign creation/reload and synthetic household import are working; the owner reported successful import use after migration 004. Event/assignment preparation is implemented locally and awaits hosted migration 005 and the owner's save/reload check. The local field/offline/sync workflow is tested, but hosted volunteer links/download/sync are not connected or issued by the new assignment builder. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
+Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. Private-link issuance/revocation, hosted assignment download/submission and per-assignment received results are implemented locally; migration 006 and the live field-loop check are pending. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
 
 ## Established requirements
 
@@ -70,7 +70,9 @@ New slice: authenticated synthetic campaign creation with server-calculated end/
 
 New import slice: each saved campaign offers built-in fixture preview, explicit approval and atomic finalization after the reviewed 004 database update. The persisted receipt appears automatically on campaign reload. Invalid examples never persist; the database import function accepts no uploaded rows and contains only the fixed approved fixture. Hosted assignment creation follows separately.
 
-Still required: remaining import failure/retry launch evidence; administrator session/recovery/rate-limit acceptance; production CSV upload/approval handling; event/assignment administration and reassignment; hosted volunteer endpoints with scoped runtime privileges; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
+New hosted field slice (006 pending): open **Volunteer links and results** under a saved assignment. Generate a private link, copy it while shown, open the volunteer screen, download and record synthetic visits, then synchronize and refresh received results. The server retains only a token hash. A lost issuance acknowledgment can be retried without creating another credential, but cannot recover the raw secret; issue another link if needed and explicitly revoke any unneeded entry. New links do not revoke existing ones. Revocation blocks pending uploads and cannot erase disconnected browser copies. Localhost links work on this computer, not other phones; physical-phone use awaits HTTPS hosting.
+
+Still required: remaining import failure/retry launch evidence; administrator session/recovery/rate-limit acceptance; production CSV upload/approval handling; assignment lifecycle/reassignment; hosted field migration and live verification; follow-up/correction administration; remaining field details; completion markers; scheduled deletion/failure visibility; client-release migration testing; real-device acceptance; approved program material; production hosting/log/backup review. Local cleanup and server expiry checks alone do not satisfy retention requirements.
 
 With hosted settings in `.env.local`, run the separate local practice harness using `DATABASE_URL= JCO_DATABASE_CA= JCO_HOSTED_STAGE= npm run demo`. This clears hosted access only for that process, not the saved configuration. Browser tests explicitly isolate these settings as well.
 

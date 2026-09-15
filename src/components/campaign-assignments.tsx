@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { AssignmentFieldControls } from "./assignment-field-controls";
 import {
   assignmentAdminRequest,
   type AssignmentSave,
@@ -11,11 +12,13 @@ export function CampaignAssignments({
   administratorId,
   deletionAt,
   ready,
+  fieldReady = false,
 }: {
   campaignId: string;
   administratorId: string;
   deletionAt: string;
   ready: boolean;
+  fieldReady?: boolean;
 }) {
   const [workspace, setWorkspace] = useState<AssignmentWorkspace>();
   const [open, setOpen] = useState(false);
@@ -165,7 +168,9 @@ export function CampaignAssignments({
           setAssignmentName("");
           setPicked([]);
           setMessage(
-            "Assignment saved. Private volunteer links are not connected yet.",
+            fieldReady
+              ? "Assignment saved. Open its volunteer links and results below."
+              : "Assignment saved. Private volunteer links are not connected yet.",
           );
         }
       }
@@ -224,10 +229,20 @@ export function CampaignAssignments({
                 {workspace.assignments.length} saved assignments
               </p>
               {workspace.assignments.map((a) => (
-                <p key={a.id}>
-                  <strong>{a.name}</strong> · {a.householdIds.length} doors ·{" "}
-                  {a.kind === "building" ? "Building run" : "Ordered list"}
-                </p>
+                <div key={a.id} className="saved-assignment">
+                  <p>
+                    <strong>{a.name}</strong> · {a.householdIds.length} doors ·{" "}
+                    {a.kind === "building" ? "Building run" : "Ordered list"}
+                  </p>
+                  {fieldReady && (
+                    <AssignmentFieldControls
+                      assignmentId={a.id}
+                      name={a.name}
+                      administratorId={administratorId}
+                      deletionAt={deletionAt}
+                    />
+                  )}
+                </div>
               ))}
             </>
           )}
@@ -257,7 +272,10 @@ export function CampaignAssignments({
             <>
               <p className="fine">
                 Synthetic preparation only. Use practice event and volunteer
-                labels. No private volunteer links are issued in this step.
+                labels.{" "}
+                {fieldReady
+                  ? "Private links give access only to the saved assignment."
+                  : "No private volunteer links are issued in this step."}
               </p>
               <form
                 onSubmit={(event) => {

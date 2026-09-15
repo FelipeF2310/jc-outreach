@@ -16,6 +16,7 @@ import { hostedDatabase, postgresOptions } from "../../src/server/postgres";
 import { createAdministratorCampaign } from "../../src/server/admin-campaigns";
 import { importAdministratorExample } from "../../src/server/admin-imports";
 import { prepareAdministratorAssignment } from "../../src/server/admin-assignments";
+import { manageAdministratorField } from "../../src/server/admin-field";
 import type { Database } from "../../src/server/db-contract";
 
 const config: AdminConfig = {
@@ -238,6 +239,51 @@ test("assignment preparation authenticates before opening a database", async () 
     );
     assert.equal(response.status, status);
     assert.match(response.headers.get("cache-control")!, /no-store/);
+  }
+  assert.equal(opened, 0);
+});
+
+test("private link management requires verified administrator access before database or body access", async () => {
+  let opened = 0;
+  const database = (): Database => {
+    opened++;
+    throw Error("Must not open database");
+  };
+  for (const action of ["status", "issue", "revoke"]) {
+    const input = {
+      action,
+      assignmentId: user.id,
+      id: user.id,
+      confirmed: true,
+    };
+    for (const [req, fake, status] of [
+      [request(input), provider(), 401],
+      [
+        request(input, cookie()),
+        provider({ email: "unapproved@example.test" }),
+        403,
+      ],
+      [
+        new NextRequest(`${config.origin}/api/admin/field`, {
+          method: "POST",
+          headers: {
+            Origin: "https://untrusted.example.test",
+            "X-JCO-Admin": "1",
+            Cookie: cookie(),
+          },
+        }),
+        provider(),
+        403,
+      ],
+    ] as const) {
+      const response = await adminEndpoint(
+        req,
+        (ctx, cfg) => manageAdministratorField(req, ctx, cfg, database),
+        { config, fetcher: fake.fetcher },
+      );
+      assert.equal(response.status, status);
+      assert.match(response.headers.get("cache-control")!, /no-store/);
+    }
   }
   assert.equal(opened, 0);
 });

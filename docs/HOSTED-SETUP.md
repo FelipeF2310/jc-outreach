@@ -5,7 +5,7 @@ This is an operator handoff, not a record of completed deployment. Administrator
 ## Modes and boundaries
 
 - `npm run demo`: loopback-only PGlite practice console. Does not send email or use the hosted database. `/admin` honestly reports that hosted sign-in is not configured.
-- `npm start` with `JCO_HOSTED_STAGE=synthetic-preview`: generic administrator sign-in shell and protected, read-only hosted campaign list. Requires the configuration below. The practice endpoints and volunteer hosted backend are not enabled in this mode yet.
+- `npm start` with `JCO_HOSTED_STAGE=synthetic-preview`: provider-authenticated administration and, after migration 006, scoped bearer-link field download/submission. Requires the configuration below. The demo endpoints remain disabled; real resident data and raw file uploads remain disabled.
 - There is no enabled real-data/production mode. `production`, missing settings, and conflicting demo/hosted settings fail closed.
 
 ## Account configuration requiring the owner
@@ -113,9 +113,17 @@ Passing local mock-provider tests does not satisfy these hosted checks. Schedule
 
 ## Local evidence and reproduction
 
+### Additive hosted field update 006
+
+Status: implemented and tested locally; not applied to Supabase yet. Applied 002–005 are immutable. The ignored `private/update-field.command` prompts for **FIELD-UPDATE** and the existing database-owner password through hidden stdin, then runs `scripts/migrate-field.ts` with verified TLS and fixed, sanitized failure categories. It changes neither application credentials nor saved configuration. It adds credential lifecycle metadata and five bounded runtime functions through two non-login executors, with internal helpers inaccessible to the runtime/provider clients. It creates no links or visits and does not reset, import or delete anything.
+
+After owner-confirmed success, verify the runtime audit/function capabilities read-only. Refresh the existing saved assignment and open **Volunteer links and results**. Generate a private link and copy it while visible; only its hash is stored on the server. Open the volunteer assignment, download, save a synthetic visit, reload, synchronize and refresh the administrator results. Never paste a private link into chat or commit it. A localhost link is for this computer only; other phones require the later HTTPS preview.
+
+Lost issuance acknowledgment: retry uses the same credential ID and creates no second link. Since the raw secret is not retained, a retry of an already-committed issuance returns an explanation rather than inventing a recoverable token. Administrators may issue another link and separately revoke an unneeded one; issuance never implicitly revokes existing access. Explicit revocation requires confirmation because it blocks even previously saved uploads. Reconnection cannot remotely erase a browser that remains offline. Live revocation, expiry, HTTPS/logging and physical-phone gates remain required.
+
 ### Additive event/assignment update 005
 
-Status: prepared and locally tested; not yet applied to Supabase. Migrations 003 and 004 are already applied and must not be edited or rerun as initialization.
+Status: applied in the owner's run starting 2026-09-15 at 19:16:19 UTC. Independent read-only verification at 19:18:15 UTC passed the restricted runtime audit, all three assignment-function capability checks and actual workspace reads: three active campaigns, one finalized import, three household doors, zero events/assignments at that time. The owner subsequently confirmed one event and one two-door building assignment survive refresh, with both units marked already assigned. Migrations 003, 004 and 005 are applied and must not be edited or rerun as initialization; the operator procedure and smoke-test instructions are retained for reference, not a request to repeat completed work.
 
 The ignored `private/update-assignments.command` prompts for `ASSIGNMENT-UPDATE` and the existing **database-owner** password through hidden stdin. It runs `scripts/migrate-assignments.ts` with the verified CA and explicitly validated project/pooler configuration. It never puts the password in command arguments, source control, errors or saved application configuration. The runtime still uses its restricted reader connection.
 

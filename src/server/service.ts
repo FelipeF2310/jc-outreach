@@ -10,6 +10,17 @@ import {
 
 export const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
+export function practicePrograms(): Assignment["programs"] {
+  return Object.entries(programNames).map(([id, name]) => ({
+    id: id as keyof typeof programNames,
+    name,
+    summary:
+      "Practice reference only. Ask the organizer for reviewed outreach material before field use. This app does not determine eligibility.",
+    source: "New Jersey Division of Taxation",
+    url: "https://www.nj.gov/treasury/taxation/relief.shtml",
+    reviewedAt: null,
+  }));
+}
 export async function issueCredential(db: Database, assignmentId: string) {
   const token = randomBytes(32).toString("base64url");
   await db.query(
@@ -123,15 +134,7 @@ export async function downloadAssignment(
             lastName: p.last_name,
           })),
       })),
-      programs: Object.entries(programNames).map(([id, name]) => ({
-        id: id as keyof typeof programNames,
-        name,
-        summary:
-          "Practice reference only. Ask the organizer for reviewed outreach material before field use. This app does not determine eligibility.",
-        source: "New Jersey Division of Taxation",
-        url: "https://www.nj.gov/treasury/taxation/relief.shtml",
-        reviewedAt: null,
-      })),
+      programs: practicePrograms(),
     };
   });
 }

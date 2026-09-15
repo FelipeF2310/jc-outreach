@@ -13,6 +13,14 @@ import { migrateCampaigns } from "../../src/server/migrate-campaigns";
 import { migrateImports } from "../../src/server/migrate-imports";
 import { migrateAssignments } from "../../src/server/migrate-assignments";
 import { assignmentAdmin } from "../../src/server/assignment-admin";
+import { migrateField } from "../../src/server/migrate-field";
+import {
+  downloadHostedAssignment,
+  submitHostedOperation,
+  hostedFieldAdmin,
+} from "../../src/server/hosted-field";
+import { DomainError, type VisitOperation } from "../../src/lib/contracts";
+import { hashToken } from "../../src/server/service";
 import { hostedImport } from "../../src/server/hosted-imports";
 import { createHostedCampaign } from "../../src/server/hosted-campaigns";
 import { ownerPreflight } from "../../src/server/owner-preflight";
@@ -907,4 +915,461 @@ test("event and assignment preparation preserves scope, ordering, retries and ex
       ),
     /active event/,
   );
+});
+
+test("hosted private links scope downloads and atomic operations; retries, revisions and lifecycle are safe", async () => {
+  const runtime = postgresDatabase(reader);
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateField(postgresDatabase(migrator));
+    await migrateField(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  const actor = randomUUID();
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Field loop", endDate: "2030-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Field practice",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const ids = event.workspace.households.map((h) => h.id),
+    aid = randomUUID(),
+    otherAid = randomUUID();
+  for (const [id, householdIds] of [
+    [aid, ids.slice(0, 2)],
+    [otherAid, ids.slice(2)],
+  ] as const)
+    await assignmentAdmin(
+      runtime,
+      {
+        action: "assignment",
+        campaignId: campaign.id,
+        eventId: event.savedId,
+        id,
+        name: "Practice volunteer",
+        kind: "building",
+        householdIds,
+      },
+      actor,
+    );
+  const issuedId = randomUUID();
+  const issued = await hostedFieldAdmin(
+    runtime,
+    { action: "issue", assignmentId: aid, id: issuedId },
+    actor,
+  );
+  assert.match(issued.token!, /^[A-Za-z0-9_-]{43}$/);
+  const token = issued.token!;
+  const retry = await hostedFieldAdmin(
+    runtime,
+    { action: "issue", assignmentId: aid, id: issuedId },
+    actor,
+  );
+  assert.equal(retry.token, null);
+  assert.equal(retry.snapshot.credentials.length, 1);
+  const status = (code: number) => (e: unknown) =>
+    e instanceof DomainError && e.status === code;
+  await assert.rejects(
+    () =>
+      hostedFieldAdmin(
+        runtime,
+        { action: "issue", assignmentId: otherAid, id: issuedId },
+        actor,
+      ),
+    status(409),
+  );
+  const assignment = await downloadHostedAssignment(runtime, token);
+  assert.equal(assignment.households.length, 2);
+  assert.equal(assignment.households[0].people.length, 2);
+  assert.deepEqual(
+    assignment,
+    await downloadAssignment(postgresDatabase(pool), token),
+  );
+  assert.doesNotMatch(
+    JSON.stringify(assignment),
+    /VANID|token_hash|created_by|source_id|Score|Owner|Tier/,
+  );
+  assert.doesNotMatch(JSON.stringify(issued.snapshot), new RegExp(token));
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT token_hash FROM outreach.credentials WHERE id=$1",
+        [issuedId],
+      )
+    ).rows[0].token_hash,
+    hashToken(token),
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, "invalid"),
+    status(401),
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, "x".repeat(43)),
+    status(401),
+  );
+  function visit(extra: Partial<VisitOperation> = {}): VisitOperation {
+    return {
+      id: randomUUID(),
+      visitId: randomUUID(),
+      assignmentId: aid,
+      createdAt: new Date().toISOString(),
+      schemaVersion: 1,
+      kind: "visit",
+      householdId: ids[0],
+      result: "resident",
+      programs: ["freeze"],
+      help: null,
+      corrections: [],
+      doNotContact: false,
+      ...extra,
+    };
+  }
+  const op = visit({
+    help: {
+      id: randomUUID(),
+      personId: null,
+      phone: "",
+      consent: false,
+      arrangement: "return",
+    },
+    corrections: [
+      {
+        id: randomUUID(),
+        kind: "moved",
+        personId: assignment.households[0].people[0].id,
+      },
+    ],
+    doNotContact: true,
+  });
+  const receipts = await Promise.all([
+    submitHostedOperation(runtime, token, op),
+    submitHostedOperation(runtime, token, op),
+  ]);
+  assert.deepEqual(receipts[0], receipts[1]);
+  await assert.rejects(
+    () => submitHostedOperation(runtime, token, { ...op, result: "no_answer" }),
+    status(409),
+  );
+  const snapshot = () =>
+    hostedFieldAdmin(runtime, { action: "status", assignmentId: aid }, actor);
+  let state = (await snapshot()).snapshot;
+  assert.deepEqual(state.counts, { attempts: 1, repeats: 0, conversations: 1 });
+  assert.equal(state.helpRequests, 1);
+  assert.equal(
+    (await downloadHostedAssignment(runtime, token)).households[0].suppressed,
+    true,
+  );
+  for (const invalid of [
+    visit({ householdId: ids[2] }),
+    visit({ assignmentId: otherAid }),
+    visit({
+      corrections: [
+        { id: randomUUID(), kind: "moved", personId: randomUUID() },
+      ],
+    }),
+  ])
+    await assert.rejects(
+      () => submitHostedOperation(runtime, token, invalid),
+      status(403),
+    );
+  await assert.rejects(
+    () =>
+      submitHostedOperation(
+        runtime,
+        token,
+        visit({
+          help: {
+            id: randomUUID(),
+            personId: null,
+            phone: "555",
+            consent: false,
+            arrangement: "return",
+          },
+        }),
+      ),
+    status(422),
+  );
+  await assert.rejects(
+    () =>
+      submitHostedOperation(runtime, token, {
+        ...visit(),
+        extra: "not permitted",
+      }),
+    status(422),
+  );
+  await assert.rejects(
+    () =>
+      reader.query("SELECT outreach.submit_field_operation($1,$2)", [
+        hashToken(token),
+        JSON.stringify({ ...visit(), extra: "not permitted" }),
+      ]),
+    (e) => (e as { code: string }).code === "JF422",
+  );
+  // Force a late associated-row failure after operation+visit insertion.
+  const broken = visit({ help: { ...op.help!, id: op.help!.id } });
+  await assert.rejects(
+    () => submitHostedOperation(runtime, token, broken),
+    status(409),
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int n FROM outreach.operations WHERE id=$1",
+        [broken.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int n FROM outreach.visits WHERE id=$1",
+        [broken.visitId],
+      )
+    ).rows[0].n,
+    0,
+  );
+  await pool.query("UPDATE outreach.help_requests SET status=$1 WHERE id=$2", [
+    "In progress",
+    op.help!.id,
+  ]);
+  const revision = {
+    id: randomUUID(),
+    assignmentId: aid,
+    createdAt: new Date().toISOString(),
+    schemaVersion: 1,
+    kind: "revision",
+    visitId: op.visitId,
+    householdId: ids[0],
+    originalOperationId: op.id,
+    previousOperationId: op.id,
+    result: "no_answer",
+  };
+  await submitHostedOperation(runtime, token, revision);
+  await submitHostedOperation(runtime, token, revision);
+  assert.equal((await snapshot()).snapshot.counts.conversations, 0);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT status FROM outreach.help_requests WHERE id=$1",
+        [op.help!.id],
+      )
+    ).rows[0].status,
+    "In progress",
+  );
+  await assert.rejects(
+    () =>
+      submitHostedOperation(runtime, token, { ...revision, id: randomUUID() }),
+    status(409),
+  );
+  await assert.rejects(
+    () =>
+      submitHostedOperation(runtime, token, {
+        ...revision,
+        id: randomUUID(),
+        visitId: randomUUID(),
+      }),
+    status(424),
+  );
+  const secondId = randomUUID();
+  const concurrentIssuance = await Promise.all(
+    [0, 1].map(() =>
+      hostedFieldAdmin(
+        runtime,
+        { action: "issue", assignmentId: aid, id: secondId },
+        actor,
+      ),
+    ),
+  );
+  assert.equal(concurrentIssuance.filter((result) => !!result.token).length, 1);
+  assert.equal((await snapshot()).snapshot.credentials.length, 2);
+  const second = concurrentIssuance.find((result) => !!result.token)!;
+  await submitHostedOperation(runtime, second.token!, visit());
+  assert.deepEqual((await snapshot()).snapshot.counts, {
+    attempts: 1,
+    repeats: 1,
+    conversations: 1,
+  });
+  const building = {
+    id: randomUUID(),
+    assignmentId: aid,
+    createdAt: new Date().toISOString(),
+    schemaVersion: 1,
+    kind: "building",
+    buildingId: assignment.households[0].buildingId,
+    reason: "locked",
+  };
+  await submitHostedOperation(runtime, token, building);
+  await submitHostedOperation(runtime, token, building);
+  state = (await snapshot()).snapshot;
+  assert.equal(state.buildingFailures, 1);
+  assert.equal(state.counts.attempts, 1);
+  await assert.rejects(
+    () =>
+      submitHostedOperation(runtime, token, {
+        ...building,
+        id: randomUUID(),
+        buildingId: randomUUID(),
+      }),
+    status(403),
+  );
+  // A superseded member disappears from downloads but genuine pending work survives.
+  await pool.query(
+    "UPDATE outreach.memberships SET state=$1 WHERE assignment_id=$2 AND household_id=$3",
+    ["superseded", aid, ids[1]],
+  );
+  assert.equal(
+    (await downloadHostedAssignment(runtime, token)).households.length,
+    1,
+  );
+  await submitHostedOperation(runtime, token, visit({ householdId: ids[1] }));
+  await hostedFieldAdmin(
+    runtime,
+    { action: "revoke", assignmentId: aid, id: issuedId, confirmed: true },
+    actor,
+  );
+  await hostedFieldAdmin(
+    runtime,
+    { action: "revoke", assignmentId: aid, id: issuedId, confirmed: true },
+    actor,
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, token),
+    status(403),
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT revoked_by FROM outreach.credentials WHERE id=$1",
+        [issuedId],
+      )
+    ).rows[0].revoked_by,
+    actor,
+  );
+  await assert.rejects(
+    () => submitHostedOperation(runtime, token, op),
+    status(403),
+  );
+  await downloadHostedAssignment(runtime, second.token!);
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()-interval '1 hour' WHERE id=$1",
+    [event.savedId],
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, second.token!),
+    status(403),
+  );
+  await submitHostedOperation(
+    runtime,
+    second.token!,
+    visit({ createdAt: new Date(Date.now() - 2 * 3600000).toISOString() }),
+  );
+  await assert.rejects(
+    () => submitHostedOperation(runtime, second.token!, visit()),
+    status(422),
+  );
+  await assert.rejects(
+    () =>
+      hostedFieldAdmin(
+        runtime,
+        { action: "issue", assignmentId: aid, id: randomUUID() },
+        actor,
+      ),
+    status(422),
+  );
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()-interval '74 hours' WHERE id=$1",
+    [event.savedId],
+  );
+  await assert.rejects(
+    () => submitHostedOperation(runtime, second.token!, op),
+    status(410),
+  );
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()+interval '1 day' WHERE id=$1",
+    [event.savedId],
+  );
+  // Expiry must deny access even before a deletion job exists.
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaign.id],
+  );
+  await assert.rejects(
+    () => downloadHostedAssignment(runtime, second.token!),
+    status(410),
+  );
+  await assert.rejects(
+    () => submitHostedOperation(runtime, second.token!, op),
+    status(410),
+  );
+  await assert.rejects(() => snapshot(), status(404));
+  for (const sql of [
+    "SELECT * FROM outreach.credentials",
+    "SELECT * FROM outreach.operations",
+    "SET ROLE jco_field_executor",
+    "SET ROLE jco_field_admin_executor",
+    "DELETE FROM outreach.visits",
+  ])
+    await assert.rejects(() => reader.query(sql), /permission denied/);
+  for (const signature of [
+    "outreach.field_access(text,boolean)",
+    "outreach.field_keys(jsonb,text[])",
+  ])
+    assert.equal(
+      (
+        await reader.query(
+          "SELECT has_function_privilege(current_user,$1,'EXECUTE') allowed",
+          [signature],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  for (const role of ["anon", "authenticated", "service_role"])
+    for (const signature of [
+      "outreach.download_field_assignment(text)",
+      "outreach.submit_field_operation(text,jsonb)",
+      "outreach.field_admin_snapshot(uuid)",
+      "outreach.issue_field_credential(uuid,uuid,text,uuid)",
+      "outreach.revoke_field_credential(uuid,uuid,uuid)",
+    ])
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT has_function_privilege($1,$2,'EXECUTE') allowed",
+            [role, signature],
+          )
+        ).rows[0].allowed,
+        false,
+      );
 });

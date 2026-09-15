@@ -32,6 +32,23 @@
 .campaign-assignments form {
   margin-top: 24px;
 }
+.saved-assignment,
+.credential-row,
+.private-link-box {
+  margin: 18px 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.assignment-field-controls {
+  margin-top: 12px;
+}
+.private-link-box .import-assignment-actions {
+  margin-top: 14px;
+}
+.assignment-field-controls .primary {
+  display: inline-block;
+}
 .campaign-assignments select {
   appearance: none;
   -webkit-appearance: none;

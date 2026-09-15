@@ -216,6 +216,7 @@ export function AdminSignIn() {
                           administratorId={identity.id}
                           deletionAt={campaign.deletionAt}
                           ready={campaign.assignmentsReady === true}
+                          fieldReady={campaign.fieldReady === true}
                         />
                       )}
                     </div>

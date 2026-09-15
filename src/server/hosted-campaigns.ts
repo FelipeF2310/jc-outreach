@@ -96,8 +96,9 @@ export async function listHostedCampaigns(db: Database) {
     const ready = await tx.query<{
       ready: boolean;
       assignments_ready: boolean;
+      field_ready: boolean;
     }>(
-      "SELECT to_regprocedure('outreach.synthetic_import_status()') IS NOT NULL AS ready, to_regprocedure('outreach.assignment_workspace(uuid)') IS NOT NULL AS assignments_ready",
+      "SELECT to_regprocedure('outreach.synthetic_import_status()') IS NOT NULL AS ready, to_regprocedure('outreach.assignment_workspace(uuid)') IS NOT NULL AS assignments_ready, to_regprocedure('outreach.submit_field_operation(text,jsonb)') IS NOT NULL AND to_regprocedure('outreach.download_field_assignment(text)') IS NOT NULL AND to_regprocedure('outreach.field_admin_snapshot(uuid)') IS NOT NULL AS field_ready",
     );
     const importReady = ready.rows[0]?.ready === true;
     const { rows } = await tx.query<{
@@ -119,6 +120,7 @@ export async function listHostedCampaigns(db: Database) {
       importReceipt: row.import_receipt ?? null,
       importReady,
       assignmentsReady: ready.rows[0]?.assignments_ready === true,
+      fieldReady: ready.rows[0]?.field_ready === true,
     }));
   });
 }
