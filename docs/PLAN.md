@@ -4,7 +4,7 @@ Updated: 2026-09-15.
 
 ## Current objective
 
-The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–008 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: correction review is implemented locally with migration 009/live verification pending; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–009 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: correction review is connected with its live report/status walkthrough pending; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
 
 ## Prepared
 
@@ -345,6 +345,12 @@ Native tests exercise non-superuser migration/replay with pre-existing reports, 
 Final verification: 72 unit/server tests, 11 isolated native PostgreSQL tests and all 40 Chromium/WebKit browser tests pass (123 total). Production build, strict type checking, formatting and whitespace checks pass; the helper passes zsh syntax validation and remains ignored. Inspected the synthetic WebKit phone screenshot; the existing visual language is unchanged. Initial browser failures came from the old unavailable-feature assertion and an exact-text assertion missing the visible Reported prefix; corrected those assertions and reran the full suite with no skips. No new dependencies, deployment or GitHub push.
 
 The ignored executable CORRECTION-UPDATE helper uses the existing hidden owner-password/verified-TLS path; no owner secret is saved or logged. The next live step requires the owner's operator input, then independent read-only capability checks and a synthetic person-specific report/review/reload/reopen walkthrough. This does not close production, physical-phone or scheduled-deletion gates.
+
+## Hosted correction-queue verification — 2026-09-15
+
+The owner reported successful migration 009 from the run starting at 22:04:05 UTC: verified TLS/owner authentication passed, existing records/passwords were preserved and no reports or review actions were created. Independent verification at 22:04:51 UTC used the saved restricted runtime over verified TLS in a READ ONLY transaction. The privilege audit passed; both correction-function capabilities existed and were executable; actual queue reads parsed successfully across three active synthetic campaigns. Zero correction reports existed at that time. No identifiers, report content or secrets were printed, and no records/settings changed during verification.
+
+Next: owner records a new synthetic person-specific correction, synchronizes it, then confirms review and reopening persist after reload. The migration/read checks do not prove that live mutation workflow or close C10/physical-device/production gates. Only status documentation changed; application suites were not rerun. No deployment or push occurred.
 
 ## Information required for production configuration
 

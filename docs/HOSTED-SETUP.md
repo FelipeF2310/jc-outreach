@@ -129,11 +129,13 @@ The ignored `private/update-link-labels.command` requires **LABEL-UPDATE**, then
 
 After successful operator output, independently verify the restricted runtime audit and the new `outreach.issue_field_credential(uuid,uuid,text,uuid,text)` capability. Refresh **Volunteer links**, enter a practice volunteer/link name, generate once, then refresh and confirm the saved label remains. Do not share the private URL in chat. Old unnamed links still work; this update does not silently rename them. Real CSV uploads and all outstanding launch gates remain unchanged.
 
-### Resident correction review update 009 — prepared, not applied
+### Resident correction review update 009 — applied, live walkthrough pending
+
+The owner's run starting 2026-09-15 at 22:04:05 UTC succeeded. Independent read-only verification at 22:04:51 UTC passed the restricted-runtime audit, both function capability checks and queue reads across three active synthetic campaigns; zero correction reports existed at that point. Do not rerun the completed update. The procedure below is retained for reference; the live report/review/reload/reopen walkthrough remains pending.
 
 After local test verification, use the ignored `private/update-correction-queue.command`. Confirm **CORRECTION-UPDATE**, then enter the existing database-owner password through hidden stdin, never in chat. The verified-TLS operator checks immutable prior migrations and applies additive 009 transactionally. Existing campaigns, credentials, visits, reports and passwords are preserved; no reports are created and none are marked reviewed. Do not initialize or reset the database.
 
-After successful output, independently check the restricted-runtime audit and `outreach.correction_queue(uuid)` / `outreach.update_correction_status(uuid,uuid,uuid,integer,text,uuid)` capabilities read-only. In a synthetic multi-person household, record Person moved for one listed person, save and synchronize. Review it under Results & follow-up → Resident corrections, mark reviewed and reload; expand Reviewed reports, Keep open, and reload again. The other household members, source records and visit totals must remain unchanged by administrator review. Hosted execution and this walkthrough remain pending.
+The restricted-runtime audit and `outreach.correction_queue(uuid)` / `outreach.update_correction_status(uuid,uuid,uuid,integer,text,uuid)` read-only checks have passed. Next, in a synthetic multi-person household, record Person moved for one listed person, save and synchronize. Review it under Results & follow-up → Resident corrections, mark reviewed and reload; expand Reviewed reports, Keep open, and reload again. The other household members, source records and visit totals must remain unchanged by administrator review. This walkthrough remains pending.
 
 ### Application-help queue update 008 — applied, live happy path confirmed
 
