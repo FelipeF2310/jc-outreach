@@ -129,7 +129,9 @@ The ignored `private/update-link-labels.command` requires **LABEL-UPDATE**, then
 
 After successful operator output, independently verify the restricted runtime audit and the new `outreach.issue_field_credential(uuid,uuid,text,uuid,text)` capability. Refresh **Volunteer links**, enter a practice volunteer/link name, generate once, then refresh and confirm the saved label remains. Do not share the private URL in chat. Old unnamed links still work; this update does not silently rename them. Real CSV uploads and all outstanding launch gates remain unchanged.
 
-### Application-help queue update 008 — prepared, not applied
+### Application-help queue update 008 — applied, live walkthrough pending
+
+The owner's run starting 2026-09-15 at 21:41:41 UTC succeeded. Independent read-only verification at 21:43:09 UTC passed the restricted-runtime audit, both function capability checks and actual queue reads across all three active synthetic campaigns; zero help requests existed at that time. Do not rerun the completed migration. The operator procedure below is retained for reference; live request creation/status-change verification remains pending.
 
 Use the ignored `private/update-help-queue.command`, requiring **HELP-UPDATE** and the existing hidden database-owner password (not the reader password). The CLI verifies the selected project/CA, synthetic stage and immutable prior migrations, then applies 008 in one transaction. It preserves campaigns, credentials, visits, help requests and passwords. It adds status/version history support and two narrowly granted administrator functions; the migration creates no help requests and changes no existing status. Do not initialize or reset the database.
 

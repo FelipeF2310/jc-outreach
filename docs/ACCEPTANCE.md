@@ -35,7 +35,7 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Local persistence and synchronization
 
-- [ ] C09: Application-help requests from all assignments in the selected campaign appear with household, known requester, optional consented phone and originating visit. Administrator New → In progress → Resolved updates survive reload, preserve field history and cannot silently overwrite a competing update. Lost acknowledgments retry with stable IDs, resolved requests collapse, and expiry prevents access. Local/native/browser evidence is recorded in PLAN.md; migration 008 and hosted owner verification remain pending.
+- [ ] C09: Application-help requests from all assignments in the selected campaign appear with household, known requester, optional consented phone and originating visit. Administrator New → In progress → Resolved updates survive reload, preserve field history and cannot silently overwrite a competing update. Lost acknowledgments retry with stable IDs, resolved requests collapse, and expiry prevents access. Local/native/browser evidence is recorded in PLAN.md; migration 008 is applied and hosted restricted-account capability/read checks passed on 2026-09-15. Live request/status-change verification remains pending.
 
 - [ ] C08: Administrator can use one selected-campaign workspace to review import status, create/find an assignment, share its link, and inspect that assignment's received results without coaching. Synthetic browser coverage includes section layout, campaign switching/draft retention, remembered selection, results read failures, and mobile/desktop widths. Owner/administrator usability confirmation remains pending; no backend launch gates are waived.
 

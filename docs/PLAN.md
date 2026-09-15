@@ -316,6 +316,12 @@ The user's final text now establishes CSV-only import, one finalized import per 
 5. Review provider settings and approved reference content, deploy a synthetic preview, and run the documented physical-phone session on both phones.
 6. Resolve every remaining acceptance gate before authorizing real resident data.
 
+## Hosted help-queue verification — 2026-09-15
+
+The owner reported migration 008 success from the run starting at 21:41:41 UTC. Independent verification at 21:43:09 UTC used the saved restricted runtime connection with verified TLS in a read-only transaction: the runtime permission audit passed, both help-function capabilities were available, and actual queue reads parsed successfully across three active synthetic campaigns. There were zero received help requests. No records or settings were changed by this verification.
+
+The next owner walkthrough is a new synthetic conversation requesting application help without a phone, synchronization, then administrator New → In progress → Resolved changes with reload checks. This live mutation/UI evidence is still pending; the migration/read checks do not close C09 or physical-phone/production launch gates.
+
 ## Information required for production configuration
 
 Administrator email allowlist; access to hosting/database accounts; approved program content and required languages; actual campaign/event dates; and the approved Tier 1/2 import artifact. Obtain these only when needed. Do not request credentials in chat or search unrelated local files for secrets.
