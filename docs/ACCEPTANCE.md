@@ -72,7 +72,7 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Expiration and deployment
 
-- [ ] R01: Scheduled deletion removes all application-controlled identifying campaign records despite open help requests. Local native-PostgreSQL worker tests cover 20 populated campaign/child/history tables and preserve a future campaign. Migration 013 installation and actual hosted scheduled execution remain pending; direct worker calls are not scheduler proof.
+- [ ] R01: Scheduled deletion removes all application-controlled identifying campaign records despite open help requests. Local native-PostgreSQL worker tests cover 20 populated campaign/child/history tables and preserve a future campaign. Migration 013 is applied and restricted-runtime/status verification passed on 2026-09-17 at 17:08:07 UTC; Cron is absent, no worker run is recorded, and actual hosted scheduling/execution remain pending. Installation/direct worker calls are not scheduler proof.
 - [ ] R02: Expiration immediately blocks access and late uploads, including when the deletion job fails or retries. Local tests deny expired download/upload during a forced cleanup failure and deny old uploads after deletion. Hosted boundary/failure evidence remains required.
 - [ ] R03: Deletion failures are visible; a verified retry completes cleanup. Local worker failure/rollback/retry tests and administrator mocked-transport failure/stale/read-error/recovery checks exist. Runtime cannot invoke deletion. Hosted scheduled retry and failure visibility remain unverified.
 - [ ] R04: The app checks the downloaded deadline on opening/resuming offline and performs best-effort local cleanup.
