@@ -55,6 +55,34 @@ export function AdminSignIn() {
     };
   }, []);
   const administratorId = identity?.id;
+  // Unmount expired campaign workspaces (including retained one-time links and
+  // queue state), even when the administrator leaves this tab open/offline.
+  // Server authorization remains authoritative; this is best-effort UI cleanup.
+  useEffect(() => {
+    if (!campaigns?.length) return;
+    const expire = () =>
+      setCampaigns((values) => {
+        if (!values) return values;
+        const active = values.filter(
+          (c) => Date.parse(c.deletionAt) > Date.now(),
+        );
+        return active.length === values.length ? values : active;
+      });
+    const next = Math.min(...campaigns.map((c) => Date.parse(c.deletionAt)));
+    const timeout = window.setTimeout(
+      expire,
+      Math.max(0, Math.min(next - Date.now(), 2147483647)),
+    );
+    const interval = window.setInterval(expire, 60_000);
+    window.addEventListener("focus", expire);
+    document.addEventListener("visibilitychange", expire);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", expire);
+      document.removeEventListener("visibilitychange", expire);
+    };
+  }, [campaigns]);
   useEffect(() => {
     if (!administratorId) return;
     let active = true;

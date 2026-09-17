@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates are applied and restricted reads verified, with the owner walkthrough and production deployment still pending. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
+Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. Production deployment remains pending. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection
 
@@ -29,6 +29,18 @@ Same-assignment refresh replaces downloaded household data, not the outbox. Prog
 The owner has created a Supabase project and administrator accounts; live app authentication and database connectivity still require verification. Do not assume free-plan suitability, backup guarantees, email delivery, or production log behavior. Commit the actual dependency lockfile.
 
 ## Browser/server boundary
+
+### Campaign retention worker — prepared 2026-09-17
+
+Additive hosted-only migration 013 installs `run_retention()` and `retention_status(uuid)`. It does not execute deletion or register a schedule. A non-login/non-superuser/non-bypass role owns both fixed-search-path functions. Runtime receives only EXECUTE on the read-only summary; it receives no new table access, role membership, deletion capability or arbitrary SQL. Provider roles and PUBLIC cannot call either function. Administrator identity/allowlist/origin checks precede the no-store status endpoint.
+
+The worker serializes itself with a transaction advisory lock, selects at most 50 already-expired campaigns (oldest untried attempts first), and repeats the deadline predicate on DELETE. Database RLS additionally permits this executor to delete only expired parents. Existing foreign-key cascades remove campaign data and histories; each campaign has a subtransaction so a late child failure rolls back its entire cleanup. Failure metadata contains only a campaign foreign key and attempted timestamp, never an exception message, names, phone, payload or token. Successful deletion also removes its failure row. One global row retains a last-completed timestamp and total deleted-campaign count, not identifying campaign history. Worker-wide failures/cancellation roll back that heartbeat; a missing or older-than-five-minute heartbeat is visibly unconfirmed/overdue. Calls on a non-synthetic deployment fail closed.
+
+The operator-only schedule installer uses the [Supabase Cron database-function pattern](https://supabase.com/docs/guides/cron/quickstart) after the [Cron module is enabled](https://supabase.com/docs/guides/cron/install). It refuses already-expired targets without a separate review and never overwrites a differing/inactive job. The fixed `jco-retention-v1` job runs every minute and prunes only its own completed job-run history older than seven days. There is no web-triggered deletion/retry action or scheduler secret in the frontend. Function tests are not proof of a running pg_cron installation; actual schedule registration/runs remain a hosted acceptance step.
+
+Access expires at the stored deadline regardless of worker health. Physical database cleanup happens on a subsequent scheduled run and can be delayed by outages/locks/failures; the app reports backlog instead of claiming exact-instant deletion. Authorized old uploads cannot recreate deleted assignments/credentials. The administrator retention section stays visible with no active campaign, shows anonymous overdue/failure totals and last-check time, and displays open-help warnings only for the selected unexpired campaign. Status refreshes while visible and on focus; request failure clears any healthy assertion. Expired administrator workspaces are unmounted by deadline/focus checks, including their in-memory links and queues. This browser-clock cleanup is best effort, not server authorization or guaranteed remote erasure.
+
+Backups, externally downloaded files and dormant/disconnected phones are separate copies. No actual provider backup retention window or restore drill is yet verified. Existing timestamp authorization denies expired restored rows even before the worker cleans them again; this has local database evidence, not evidence of a hosted full-backup restoration. No identifying tombstone or cross-campaign resident index is retained.
 
 ### Browser-scoped completion reports — 2026-09-17
 

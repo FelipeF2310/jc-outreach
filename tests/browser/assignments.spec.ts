@@ -46,6 +46,8 @@ test("organizer chooses doors, retries an ambiguous save and restores assignment
   let attempts = 0;
   await page.route("**/api/admin/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/retention"))
+      return route.fulfill({ json: { retention: { ready: false } } });
     if (path.endsWith("/session"))
       return route.fulfill({
         json: { administrator: { id: id(9), email: "organizer@example.test" } },

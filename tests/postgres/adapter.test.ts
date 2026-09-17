@@ -21,6 +21,8 @@ import { correctionAdmin } from "../../src/server/admin-corrections";
 import { migrateCorrectionQueue } from "../../src/server/migrate-correction-queue";
 import { migrateReassignment } from "../../src/server/migrate-reassignment";
 import { migrateCompletion } from "../../src/server/migrate-completion";
+import { migrateRetention } from "../../src/server/migrate-retention";
+import { readRetentionStatus } from "../../src/server/admin-retention";
 import type { CompletionReport } from "../../src/lib/completion-contracts";
 import {
   downloadHostedAssignment,
@@ -3028,4 +3030,383 @@ test("completion migration preserves data, narrowly authorizes reports and deriv
     submitHostedCompletion(runtime, token, report),
     denied(401),
   );
+});
+
+test("retention worker deletes only due campaigns, rolls back cascade failures, retries, and exposes no expired identities", async () => {
+  const runtime = postgresDatabase(reader),
+    actor = randomUUID();
+  assert.deepEqual(await readRetentionStatus(runtime, { campaignId: null }), {
+    ready: false,
+  });
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateRetention(postgresDatabase(migrator));
+    await migrateRetention(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  let status = await readRetentionStatus(runtime, { campaignId: null });
+  assert.ok(status.ready);
+  assert.equal(status.health, "not_started");
+  assert.equal(
+    status.checkedAt,
+    null,
+    "migration neither runs nor schedules deletion",
+  );
+  await assert.rejects(
+    readRetentionStatus(runtime, { campaignId: null, delete: true }),
+    /valid campaign/,
+  );
+  for (const sql of [
+    "SELECT outreach.run_retention()",
+    "DELETE FROM outreach.campaigns",
+    "SELECT * FROM outreach.retention_health",
+    "SELECT * FROM outreach.retention_failures",
+    "SET ROLE jco_retention_executor",
+  ])
+    await assert.rejects(reader.query(sql), /permission denied/);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    const acl = await pool.query(
+      "SELECT has_function_privilege($1,'outreach.run_retention()','EXECUTE') AS run,has_function_privilege($1,'outreach.retention_status(uuid)','EXECUTE') AS read,has_table_privilege($1,'outreach.retention_failures','SELECT') AS failures",
+      [role],
+    );
+    assert.deepEqual(acl.rows[0], { run: false, read: false, failures: false });
+  }
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Retention test", endDate: "2030-05-01" },
+    actor,
+  );
+  const untouched = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Keep future campaign", endDate: "2031-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Retention event",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const assignmentId = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: assignmentId,
+      campaignId: campaign.id,
+      eventId: event.savedId,
+      name: "Retention walk",
+      kind: "scattered",
+      householdIds: event.workspace.households.map((h) => h.id),
+    },
+    actor,
+  );
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId,
+      label: "Retention fixture link",
+    },
+    actor,
+  );
+  const token = issued.token!;
+  const downloaded = await downloadHostedAssignment(runtime, token);
+  const household = downloaded.households[0];
+  const visit: VisitOperation = {
+    id: randomUUID(),
+    visitId: randomUUID(),
+    assignmentId,
+    householdId: household.id,
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    kind: "visit",
+    result: "resident",
+    programs: [],
+    doNotContact: true,
+    help: {
+      id: randomUUID(),
+      personId: household.people[0].id,
+      phone: "2015550100",
+      consent: true,
+      arrangement: "return",
+    },
+    corrections: [
+      { id: randomUUID(), kind: "moved", personId: household.people[0].id },
+    ],
+  };
+  await submitHostedOperation(runtime, token, visit);
+  await helpAdmin(
+    runtime,
+    {
+      action: "update",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      requestId: visit.help!.id,
+      expectedVersion: 0,
+      status: "In progress",
+    },
+    actor,
+  );
+  await correctionAdmin(
+    runtime,
+    {
+      action: "update",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      reportId: visit.corrections[0].id,
+      expectedVersion: 0,
+      status: "Reviewed",
+    },
+    actor,
+  );
+  const revision = {
+    id: randomUUID(),
+    assignmentId,
+    createdAt: new Date().toISOString(),
+    schemaVersion: 1 as const,
+    kind: "revision" as const,
+    visitId: visit.visitId,
+    householdId: household.id,
+    originalOperationId: visit.id,
+    previousOperationId: visit.id,
+    result: "other" as const,
+  };
+  await submitHostedOperation(runtime, token, revision);
+  const building = {
+    id: randomUUID(),
+    assignmentId,
+    schemaVersion: 1 as const,
+    createdAt: new Date().toISOString(),
+    kind: "building" as const,
+    buildingId: household.buildingId,
+    reason: "locked" as const,
+  };
+  await submitHostedOperation(runtime, token, building);
+  await submitHostedCompletion(runtime, token, {
+    id: randomUUID(),
+    assignmentId,
+    deviceId: randomUUID(),
+    version: 1,
+    state: "finished",
+    operationIds: [visit.id, revision.id, building.id],
+    pendingIds: [],
+    createdAt: new Date().toISOString(),
+  });
+  status = await readRetentionStatus(runtime, { campaignId: campaign.id });
+  assert.ok(status.ready);
+  assert.equal(status.selected?.openHelpRequests, 1);
+  const reassignedId = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "reassign",
+      id: reassignedId,
+      campaignId: campaign.id,
+      sourceId: assignmentId,
+      name: "Reassigned retention fixture",
+      householdIds: [downloaded.households[1].id],
+      confirmed: true,
+    },
+    actor,
+  );
+  // Include the legacy rehearsal pointer; it must not leave imported identities behind.
+  await pool.query(
+    "INSERT INTO outreach.import_rehearsals(campaign_id,end_at,assignment_id) VALUES($1,$2,$3)",
+    [campaign.id, campaign.endAt, assignmentId],
+  );
+  const identifiers = [
+    campaign.id,
+    reassignedId,
+    assignmentId,
+    event.savedId,
+    visit.id,
+    revision.id,
+    building.id,
+    visit.visitId,
+    ...downloaded.households.flatMap((h) => [
+      h.id,
+      h.buildingId,
+      ...h.people.map((p) => p.id),
+    ]),
+  ];
+  const tables = [
+    "campaigns",
+    "events",
+    "assignments",
+    "households",
+    "people",
+    "memberships",
+    "credentials",
+    "operations",
+    "visits",
+    "help_requests",
+    "corrections",
+    "building_attempts",
+    "imports",
+    "buildings",
+    "import_people",
+    "completion_reports",
+    "help_status_changes",
+    "correction_status_changes",
+    "reassignments",
+    "import_rehearsals",
+  ];
+  const rowCounts = async () => {
+    const result: Record<string, number> = {};
+    for (const table of tables)
+      result[table] = (
+        await pool.query(
+          `SELECT count(*)::int AS n FROM outreach.${table} t WHERE to_jsonb(t)::text LIKE ANY($1::text[])`,
+          [identifiers.map((id) => `%${id}%`)],
+        )
+      ).rows[0].n;
+    return result;
+  };
+  const original = await rowCounts();
+  for (const table of tables)
+    assert.ok(original[table] > 0, `fixture exercises ${table}`);
+  await pool.query("SELECT outreach.run_retention()");
+  assert.deepEqual(
+    await rowCounts(),
+    original,
+    "not-yet-due campaign remains intact",
+  );
+  const baseline = await readRetentionStatus(runtime, { campaignId: null });
+  assert.ok(baseline.ready);
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaign.id],
+  );
+  // A late child failure must roll back every earlier cascade within this campaign.
+  await pool.query(
+    "CREATE FUNCTION outreach.test_retention_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'SENSITIVE_FIXTURE_MUST_NOT_BE_STORED'; END $$; CREATE TRIGGER test_retention_failure BEFORE DELETE ON outreach.help_requests FOR EACH ROW EXECUTE FUNCTION outreach.test_retention_failure()",
+  );
+  await pool.query("SELECT outreach.run_retention()");
+  assert.deepEqual(await rowCounts(), original);
+  status = await readRetentionStatus(runtime, { campaignId: campaign.id });
+  assert.ok(status.ready);
+  assert.equal(status.health, "recent");
+  assert.equal(status.overdueCampaigns, 1);
+  assert.equal(status.failedCampaigns, 1);
+  assert.equal(
+    status.selected,
+    null,
+    "expired name and open-task detail are never returned",
+  );
+  assert.equal(JSON.stringify(status).includes(campaign.id), false);
+  assert.equal(
+    JSON.stringify(
+      (await pool.query("SELECT * FROM outreach.retention_failures")).rows,
+    ).includes("SENSITIVE"),
+    false,
+  );
+  assert.ok(
+    !(await listHostedCampaigns(runtime)).some((c) => c.id === campaign.id),
+  );
+  await assert.rejects(
+    downloadHostedAssignment(runtime, token),
+    (e: unknown) => e instanceof DomainError && e.status === 410,
+  );
+  await assert.rejects(
+    submitHostedOperation(runtime, token, visit),
+    (e: unknown) => e instanceof DomainError && e.status === 410,
+  );
+  await pool.query(
+    "DROP TRIGGER test_retention_failure ON outreach.help_requests; DROP FUNCTION outreach.test_retention_failure()",
+  );
+  // Concurrent runners either serialize or skip; neither duplicates success counts.
+  await Promise.all([
+    pool.query("SELECT outreach.run_retention()"),
+    pool.query("SELECT outreach.run_retention()"),
+  ]);
+  assert.deepEqual(
+    await rowCounts(),
+    Object.fromEntries(tables.map((t) => [t, 0])),
+  );
+  status = await readRetentionStatus(runtime, { campaignId: null });
+  assert.ok(status.ready);
+  assert.equal(status.failedCampaigns, 0);
+  assert.equal(status.overdueCampaigns, 0);
+  assert.equal(status.deletedCampaigns, baseline.deletedCampaigns + 1);
+  await pool.query("SELECT outreach.run_retention()");
+  assert.deepEqual(
+    (await readRetentionStatus(runtime, { campaignId: null })).ready,
+    true,
+  );
+  const afterRetry = await readRetentionStatus(runtime, { campaignId: null });
+  assert.ok(afterRetry.ready);
+  assert.equal(afterRetry.deletedCampaigns, status.deletedCampaigns);
+  // Simulate an expired parent restored from an old backup: deadline authorization
+  // still denies reads, and the worker removes it again without a tombstone bypass.
+  await pool.query(
+    "INSERT INTO outreach.campaigns(id,name,deletion_at) VALUES($1,'Synthetic restored expired campaign',now()-interval '1 day')",
+    [campaign.id],
+  );
+  assert.ok(
+    !(await listHostedCampaigns(runtime)).some((c) => c.id === campaign.id),
+  );
+  await pool.query("SELECT outreach.run_retention()");
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.campaigns WHERE id=$1",
+        [campaign.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.ok(
+    (await listHostedCampaigns(runtime)).some((c) => c.id === untouched.id),
+  );
+  await assert.rejects(
+    submitHostedOperation(runtime, token, visit),
+    (e: unknown) => e instanceof DomainError && e.status === 401,
+  );
+  await pool.query(
+    "UPDATE outreach.retention_health SET checked_at=now()-interval '6 minutes'",
+  );
+  const stale = await readRetentionStatus(runtime, { campaignId: null });
+  assert.ok(stale.ready);
+  assert.equal(
+    stale.health,
+    "stale",
+    "whole-job failures/stopped scheduling cannot look healthy indefinitely",
+  );
+  await pool.query("DELETE FROM outreach.deployment");
+  await assert.rejects(
+    pool.query("SELECT outreach.run_retention()"),
+    /Synthetic deployment required/,
+  );
+  await pool.query(
+    "INSERT INTO outreach.deployment VALUES(true,'synthetic-preview')",
+  );
+  await verifyReader(runtime);
 });

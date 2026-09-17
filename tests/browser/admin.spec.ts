@@ -16,6 +16,8 @@ test("saved campaign imports synthetic households, rejects bad examples and rest
     attempts = 0;
   await page.route("**/api/admin/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/retention"))
+      return route.fulfill({ json: { retention: { ready: false } } });
     if (path.endsWith("/session"))
       return route.fulfill({
         json: {
@@ -188,6 +190,8 @@ test("campaign form preserves a pending save across reload and renders confirmed
           },
         },
       });
+    if (route.request().url().endsWith("/retention"))
+      return route.fulfill({ json: { retention: { ready: false } } });
     if (route.request().method() === "GET")
       return route.fulfill({
         json: { campaigns: received ? [campaign()] : [] },

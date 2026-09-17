@@ -76,6 +76,8 @@ test("hosted link UI handles lost issuance, local visits, sync retries, results 
     handlers.set(path, handler);
   stub("admin", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/retention"))
+      return route.fulfill({ json: { retention: { ready: false } } });
     if (path.endsWith("/session"))
       return route.fulfill({
         json: { administrator: { id: id(9), email: "organizer@example.test" } },

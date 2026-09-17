@@ -57,6 +57,8 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
   let mutations = 0;
   await page.route("**/api/admin/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/retention"))
+      return route.fulfill({ json: { retention: { ready: false } } });
     if (path.endsWith("/session"))
       return route.fulfill({
         json: { administrator: { id: id(9), email: "organizer@example.test" } },
@@ -214,7 +216,7 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Automatic deletion is not connected yet. This campaign is for synthetic testing only.",
+      "Automatic deletion is not connected yet. Its database update and scheduler setup are still required. Synthetic testing only.",
       { exact: true },
     ),
   ).toBeVisible();

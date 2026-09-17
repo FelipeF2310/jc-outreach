@@ -1338,3 +1338,11 @@ select {
     font-size: 28px;
   }
 }
+.retention-status {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line, #ddd);
+}
+.retention-status p {
+  margin: 0.65rem 0;
+}

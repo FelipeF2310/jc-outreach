@@ -19,6 +19,7 @@ import { prepareAdministratorAssignment } from "../../src/server/admin-assignmen
 import { manageAdministratorField } from "../../src/server/admin-field";
 import { manageAdministratorHelp } from "../../src/server/admin-help";
 import { manageAdministratorCorrection } from "../../src/server/admin-corrections";
+import { readAdministratorRetention } from "../../src/server/admin-retention";
 import type { Database } from "../../src/server/db-contract";
 
 const config: AdminConfig = {
@@ -77,6 +78,44 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+test("retention status requires an allowlisted administrator and same origin before any database access", async () => {
+  let opened = 0;
+  const database = (): Database => {
+    opened++;
+    throw Error("Database should not open");
+  };
+  const input = { campaignId: null };
+  for (const [req, fake, status] of [
+    [request(input), provider(), 401],
+    [
+      request(input, cookie()),
+      provider({ email: "unapproved@example.test" }),
+      403,
+    ],
+    [
+      new NextRequest(`${config.origin}/api/admin/retention`, {
+        method: "POST",
+        headers: {
+          Origin: "https://untrusted.example.test",
+          "X-JCO-Admin": "1",
+          Cookie: cookie(),
+        },
+      }),
+      provider(),
+      403,
+    ],
+  ] as const) {
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => readAdministratorRetention(req, ctx, cfg, database),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, status);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+  }
+  assert.equal(opened, 0);
+});
 
 test("campaign POST authenticates before database access and takes its actor only from verified identity", async () => {
   let opened = 0;

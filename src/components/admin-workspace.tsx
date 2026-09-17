@@ -4,6 +4,7 @@ import { CampaignCreate, type HostedCampaign } from "./campaign-create";
 import { CampaignImport } from "./campaign-import";
 import { CampaignAssignments } from "./campaign-assignments";
 import type { ImportReceipt } from "@/lib/import-contracts";
+import { CampaignRetention } from "./retention-status";
 
 export function AdminWorkspace({
   administratorId,
@@ -89,12 +90,12 @@ export function AdminWorkspace({
               </span>
               <span>Deletion scheduled: {date(current.deletionAt)}</span>
             </div>
-            <p className="fine retention-warning">
-              Automatic deletion is not connected yet. This campaign is for
-              synthetic testing only.
-            </p>
           </>
         )}
+        <CampaignRetention
+          key={current?.id ?? "none"}
+          campaignId={current?.id ?? null}
+        />
       </section>
       {current && (
         <nav className="workspace-nav" aria-label="Campaign sections">
