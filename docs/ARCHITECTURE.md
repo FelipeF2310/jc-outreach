@@ -30,9 +30,9 @@ The owner has created a Supabase project and administrator accounts; live app au
 
 ## Browser/server boundary
 
-### Campaign retention worker — installed 2026-09-17, scheduling pending
+### Campaign retention worker — installed and automatically running 2026-09-17
 
-Hosted migration 013 is applied. Independent restricted-runtime/status reads and Cron installation were verified at 17:11:23 UTC. The worker has not run; separate schedule activation is pending. Extension installation is not a functioning schedule. Applied 002–013 remain immutable.
+Hosted migration 013 is applied and the owner enabled the schedule in the run beginning 17:13:51 UTC. Independent READ ONLY status checks observed automatic completions at 17:14 and 17:16 UTC without invoking the worker. All three active campaigns remain and no deletion/failure/overdue campaign is recorded. This establishes automatic execution, not a hosted expired-record deletion/retry or operator-only cron-history inspection. Applied 002–013 remain immutable.
 
 Additive hosted-only migration 013 installs `run_retention()` and `retention_status(uuid)`. It does not execute deletion or register a schedule. A non-login/non-superuser/non-bypass role owns both fixed-search-path functions. Runtime receives only EXECUTE on the read-only summary; it receives no new table access, role membership, deletion capability or arbitrary SQL. Provider roles and PUBLIC cannot call either function. Administrator identity/allowlist/origin checks precede the no-store status endpoint.
 
