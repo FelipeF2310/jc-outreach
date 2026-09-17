@@ -1,4 +1,9 @@
 import { randomBytes } from "node:crypto";
+import {
+  completionReportSchema,
+  completionReceiptSchema,
+  type CompletionSnapshot,
+} from "../lib/completion-contracts";
 import { z } from "zod";
 import {
   DomainError,
@@ -84,11 +89,15 @@ export async function downloadHostedAssignment(
       assignment: Omit<Assignment, "programs">;
     }>("SELECT outreach.download_field_assignment($1) AS assignment", [hash]);
     if (!rows[0]?.assignment) throw new Error("Assignment response missing");
+    const capability = await tx.query<{ ready: boolean }>(
+      "SELECT to_regprocedure('outreach.submit_completion_report(text,jsonb)') IS NOT NULL AS ready",
+    );
     return {
       ...rows[0].assignment,
       eventEndsAt: new Date(rows[0].assignment.eventEndsAt).toISOString(),
       deletionAt: new Date(rows[0].assignment.deletionAt).toISOString(),
       programs: practicePrograms(),
+      ...(capability.rows[0]?.ready ? { completionReady: true } : {}),
     };
   });
 }
@@ -156,11 +165,45 @@ export async function hostedFieldAdmin(
     );
     if (rows[0]?.snapshot?.assignmentId !== request.assignmentId)
       throw new Error("Status unavailable");
+    const capability = await tx.query<{ ready: boolean }>(
+      "SELECT to_regprocedure('outreach.field_completion_snapshot(uuid)') IS NOT NULL AS ready",
+    );
+    if (capability.rows[0]?.ready) {
+      const report = await tx.query<{ completion: CompletionSnapshot }>(
+        "SELECT outreach.field_completion_snapshot($1) AS completion",
+        [request.assignmentId],
+      );
+      rows[0].snapshot.completion = report.rows[0]?.completion;
+    }
     return {
       snapshot: rows[0].snapshot,
       ...(request.action === "issue"
         ? { credentialId: request.id, token }
         : {}),
     };
+  });
+}
+
+export async function submitHostedCompletion(
+  db: Database,
+  token: string,
+  input: unknown,
+) {
+  const hash = credentialHash(token);
+  const parsed = completionReportSchema.safeParse(input);
+  if (!parsed.success)
+    throw new DomainError(
+      422,
+      "Invalid completion report. Saved work is unchanged.",
+    );
+  return bounded(db, async (tx) => {
+    const result = await tx.query<{ receipt: unknown }>(
+      "SELECT outreach.submit_completion_report($1,$2::jsonb) AS receipt",
+      [hash, JSON.stringify(parsed.data)],
+    );
+    const receipt = completionReceiptSchema.parse(result.rows[0]?.receipt);
+    if (receipt.reportId !== parsed.data.id)
+      throw Error("Report receipt mismatch");
+    return receipt;
   });
 }

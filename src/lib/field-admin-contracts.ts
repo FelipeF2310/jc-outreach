@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Outcome } from "./contracts";
+import type { CompletionSnapshot } from "./completion-contracts";
 
 export const fieldAdminRequest = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("status"), assignmentId: z.uuid() }),
@@ -24,6 +25,7 @@ export const fieldAdminRequest = z.discriminatedUnion("action", [
 ]);
 export type FieldAdminRequest = z.infer<typeof fieldAdminRequest>;
 export type FieldSnapshot = {
+  completion?: CompletionSnapshot;
   labelsReady?: boolean;
   assignmentId: string;
   eventEndsAt: string;

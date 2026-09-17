@@ -135,7 +135,21 @@ Owner walkthrough (synthetic only):
 
 Local tests cover pending offline handoff, empty assignments, competing saves and expiration; those are not owner-confirmed hosted or physical-phone evidence. Actual phones need the later HTTPS preview, not this computer's localhost link. Scheduled deletion and real-data gates remain open.
 
-### Additive hosted field update 006
+### Walk completion updates 011–012 — operator action pending
+
+Status on 2026-09-17: implemented and locally tested, not applied to Supabase. Existing applied 002–010 remain unchanged. No real-data use is enabled. The ignored `private/update-completion.command` asks for **COMPLETION-UPDATE** and the existing database-owner password through hidden stdin (not the runtime reader password). It runs `scripts/migrate-completion.ts --password-stdin`, verifies TLS/project/stage and previous checksums, then applies 011–012 transactionally. Existing campaigns, links, visits, reports and passwords remain; no walk is marked finished by the update. Do not initialize or reset the database.
+
+After successful owner output, independently verify the restricted-runtime audit plus `outreach.submit_completion_report(text,jsonb)` and `outreach.field_completion_snapshot(uuid)` capabilities and safe snapshot reads. Only then run this synthetic walkthrough:
+
+1. Keep the existing volunteer browser and active link. Do not clear storage, revoke access or issue another link merely for this test. Sync pending work first. Load the new app using its guarded update action; an older page without that feature needs an online assignment refresh and ordinary browser reload.
+2. Refresh assignment after the update so completion capability is downloaded. Confirm existing records/receipts remain. At the bottom of the household list, choose **Field work finished**, then confirm. Unvisited doors must stay unvisited. This initially says **Field work finished — waiting to sync**.
+3. Reload before syncing and verify the status survives. Choose **Sync now**. It should become **Finished and synchronized** without increasing received visit totals.
+4. In administrator **Results & follow-up**, choose that assignment and **Refresh results**. **Walk completion** shows the last browser report, declared/missing records and time. It must not imply every offline phone is visible or finished.
+5. Choose **Resume field work**, sync and refresh administration. The browser row should show **In progress** and the same visit totals. Recording further work is covered by local tests and may be rehearsed separately with an explicitly chosen synthetic outcome.
+
+Marking completion is permitted during the upload window but does not authorize new visits after event end. Reports expire with campaign identifying data; the deletion scheduler remains pending. A localhost link is still computer-only: HTTPS hosting and physical-phone testing remain deferred.
+
+### Additive hosted field update 006 (historical procedure)
 
 Status: applied in the owner's run starting 2026-09-15 at 20:04:57 UTC, independently verified read-only at 20:07:56 UTC. Applied 002–006 are immutable. The ignored `private/update-field.command` prompts for **FIELD-UPDATE** and the existing database-owner password through hidden stdin, then runs `scripts/migrate-field.ts` with verified TLS and fixed, sanitized failure categories. This completed procedure is retained for reference, not a request to rerun it. It changes neither application credentials nor saved configuration. It adds credential lifecycle metadata and five bounded runtime functions through two non-login executors, with internal helpers inaccessible to the runtime/provider clients. It creates no links or visits and does not reset, import or delete anything.
 

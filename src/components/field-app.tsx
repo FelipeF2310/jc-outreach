@@ -15,6 +15,7 @@ import {
 } from "@/lib/contracts";
 import {
   prepareOfflineShell,
+  captureCompletion,
   readLocal,
   saveOperation,
   storeAssignment,
@@ -56,6 +57,7 @@ export function FieldApp() {
   const [editing, setEditing] = useState<VisitOperation>();
   const [appUpdating, setAppUpdating] = useState(false);
   const [updateCheck, setUpdateCheck] = useState(0);
+  const [confirmFinished, setConfirmFinished] = useState(false);
   const lock = useRef(false);
   async function reload() {
     const local = await readLocal();
@@ -216,8 +218,30 @@ export function FieldApp() {
       setBusy(false);
     }
   }
+  async function finish(finished: boolean) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await captureCompletion(finished);
+      await reload();
+      setConfirmFinished(false);
+      setMessage(
+        "Walk status saved on this device. Sync to notify your organizer.",
+      );
+    } catch {
+      setError(
+        "Walk status could not be saved. Previously saved work is unchanged; contact your organizer if retrying fails.",
+      );
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
   const assignment = stored?.assignment;
   const pending = records.filter((r) => !r.receipt).length;
+  const reportPending = !!stored?.report && !stored.report.receipt;
   const received = records.filter((r) => r.receipt).length;
   const visited = new Set(
     records.flatMap(({ operation }) =>
@@ -331,8 +355,8 @@ export function FieldApp() {
             </div>
             <FieldUpdate
               busy={busy}
-              formOpen={!!selected || !!blocked || !!editing}
-              pending={pending}
+              formOpen={!!selected || !!blocked || !!editing || confirmFinished}
+              pending={pending + (reportPending ? 1 : 0)}
               online={online}
               checkSignal={updateCheck}
               onUpdating={setAppUpdating}
@@ -623,6 +647,64 @@ export function FieldApp() {
                   Clearing browser or site data may remove unsynchronized work.
                   Sync whenever connectivity returns.
                 </p>
+                {assignment.completionReady && (
+                  <section className="panel" aria-label="Walk completion">
+                    <p className="eyebrow">WRAP UP</p>
+                    <h2>
+                      {stored?.finished
+                        ? !reportPending && !pending
+                          ? "Finished and synchronized"
+                          : "Field work finished — waiting to sync"
+                        : "Walk in progress"}
+                    </h2>
+                    <p className="fine">
+                      This status describes work saved in this browser.
+                      Unvisited doors stay unvisited.
+                    </p>
+                    {confirmFinished ? (
+                      <>
+                        <p>
+                          {assignment.households.length - visited.size}{" "}
+                          households have no recorded visit on this device.
+                          Finish the walk for now?
+                        </p>
+                        <div className="workspace-actions">
+                          <button
+                            className="primary"
+                            disabled={busy}
+                            onClick={() => void finish(true)}
+                          >
+                            Confirm field work finished
+                          </button>
+                          <button
+                            disabled={busy}
+                            onClick={() => setConfirmFinished(false)}
+                          >
+                            Keep working
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button
+                        disabled={
+                          busy ||
+                          !!blocked ||
+                          (ended && !!stored?.finished) ||
+                          !!stored?.report?.rejection
+                        }
+                        onClick={() =>
+                          stored?.finished
+                            ? void finish(false)
+                            : setConfirmFinished(true)
+                        }
+                      >
+                        {stored?.finished
+                          ? "Resume field work"
+                          : "Field work finished"}
+                      </button>
+                    )}
+                  </section>
+                )}
               </>
             )}
           </>
@@ -635,6 +717,11 @@ export function FieldApp() {
         {error && (
           <p role="alert" className="error">
             {error}
+          </p>
+        )}
+        {stored?.report?.rejection && !stored.report.receipt && (
+          <p role="alert" className="error">
+            {stored.report.rejection}
           </p>
         )}
         {records
@@ -653,16 +740,22 @@ export function FieldApp() {
                 ? "Working…"
                 : pending
                   ? `${pending} waiting to sync`
-                  : received
-                    ? "All records received"
-                    : "No pending records"}
+                  : reportPending
+                    ? "Walk status waiting to sync"
+                    : received
+                      ? "All records received"
+                      : "No pending records"}
             </strong>
             <small>{received} received by server</small>
           </div>
           <button
             className="primary"
             onClick={sync}
-            disabled={busy || !online || !pending}
+            disabled={
+              busy ||
+              !online ||
+              (!pending && (!reportPending || !!stored?.report?.rejection))
+            }
           >
             {busy ? "Please wait…" : "Sync now"}
           </button>

@@ -88,6 +88,19 @@ test("refresh detects updates; storage failures, rejected work and incompatible 
       exact: true,
     });
     await expect(update).toBeEnabled();
+    // A saved completion marker is pending work even without a single visit.
+    await page
+      .getByRole("button", { name: "Field work finished", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Confirm field work finished", exact: true })
+      .click();
+    await expect(
+      page.getByText("Walk status waiting to sync", { exact: true }),
+    ).toBeVisible();
+    await expect(update).toBeDisabled();
+    await page.getByRole("button", { name: "Sync now", exact: true }).click();
+    await expect(update).toBeEnabled();
     await page.evaluate(() => {
       const original = IDBFactory.prototype.open;
       Object.defineProperty(window, "restoreUpdateTestStorage", {

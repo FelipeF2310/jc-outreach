@@ -1,12 +1,21 @@
 # Preparation and implementation status
 
-Updated: 2026-09-15.
+Updated: 2026-09-17.
 
 ## Current objective
 
-Current handoff: the owner confirmed the live reassignment/reload check and four preserved visits. An old open volunteer tab retained pre-update code; full reload corrected its counter to 1 of 1 / 100%. At the owner's request, a guarded app-update notice is now implemented for compatible builds; verification is recorded below. Completion reporting remains next, with physical-phone/deployment and retention gates still open.
+Current handoff: browser-scoped completion reporting is implemented; hosted updates 011–012 and the owner walkthrough remain pending. The owner deferred hosting and phone-link testing, so no public deployment is part of this slice. The prior reassignment/reload check preserved four visits, and the guarded compatible app-update notice is complete. Physical-phone/deployment and retention gates remain open.
 
 The owner confirmed live campaign creation/reload, synthetic import, event/building-run assignment save/reload, named-link/download/save/sync/admin results and application-help status persistence on 2026-09-15. Migrations 006–009 and restricted-runtime checks passed. [ROADMAP.md](ROADMAP.md) records the delivery sequence: the correction report/review/reopen happy path is now owner-confirmed; assignment lifecycle and completion reporting follow. Hosted negative/lifecycle checks and physical-phone offline acceptance remain distinct from successful happy paths. The 88-section [PRD](PRD.md) remains unchanged; the user has two physical phones for later acceptance.
+
+## Completion slice verification — 2026-09-17
+
+- All **148 automated checks pass**: 81 unit/service tests, 13 isolated native PostgreSQL tests and 54 browser checks across Chromium/WebKit mobile configurations. Production build, TypeScript and formatting checks pass. The PRD checksum and applied migrations 002–010 are unchanged.
+- Local completion survives a disconnected-proxy page close/reopen. Tests cover lost completion acknowledgment after real server commit, a report arriving before its declared visits, partial upload, repeat sync, new work after finishing, resume/reload, an empty walk creating zero visits, failed local status-save rollback, and a late acknowledgment racing another tab's newer state.
+- Native PostgreSQL verifies additive 011–012 under a non-superuser migrator, repeat migration, preserved visits, exact retry receipts, changed-ID/content conflicts, latest-version ordering, retained manifests, unrelated assignment/operation rejection, private helper/table denial, provider denial, stage/revocation/upload-window/expiration enforcement and cascading report deletion. No hosted database was changed by these tests; direct test deletion is not evidence of a functioning scheduler.
+- Administrator mocked-transport tests display last-known browser status, missing records and historical pending counts without changing visit totals. The guarded app-update test also blocks on an unreceived completion report when there are zero visits. Synthetic mobile screenshots were inspected; the new sections reuse existing typography, colors and panel/button spacing, with no overflow at 320, 390 or 1280 pixels.
+- Initial failure injection revealed Chromium transparently retrying a reset connection. The lost-acknowledgment test now deliberately discards a real committed response in the page's fetch wrapper; native disconnected-proxy coverage remains separate. Revocation tests now inspect both the visit rejection and the completion rejection explicitly, rather than an ambiguous single alert selector. No test was skipped or weakened.
+- Hosted activation and owner walkthrough remain pending. `private/update-completion.command` is ignored and mode 0700; shell syntax passed. It prompts for COMPLETION-UPDATE and hidden owner-password stdin, never stores the password, and prints sanitized stage/category output. Existing runtime credentials remain unchanged. Physical phones, real deployment/update rollout, scheduled deletion and real resident CSV intake are still open gates.
 
 ## Prepared
 

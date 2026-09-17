@@ -10,7 +10,7 @@ export async function createDatabase(path?: string) {
     await db.exec(
       await readFile(`${process.cwd()}/src/server/schema.sql`, "utf8"),
     );
-    await migrate(db);
+    await migrate(db, ["002_imports.sql", "011_completion_data.sql"]);
     return db;
   } catch (error) {
     await db.close();

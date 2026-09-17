@@ -53,6 +53,7 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
     ],
   };
   let failSecond = true;
+  let missingRecords = 1;
   let mutations = 0;
   await page.route("**/api/admin/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -119,6 +120,22 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
         json: { error: "Results temporarily unavailable." },
       });
     const snapshot: FieldSnapshot = {
+      completion: {
+        completionReady: true,
+        devices: [
+          {
+            deviceId: id(40),
+            label: "Practice link A",
+            state: "finished",
+            version: 1,
+            receivedAt: "2026-09-15T20:00:00Z",
+            declaredCount: 1,
+            pendingReportedCount: 1,
+            missingCount: missingRecords,
+            additionalActivity: false,
+          },
+        ],
+      },
       assignmentId: input.assignmentId,
       eventEndsAt: workspace.events[0].endsAt,
       uploadEndsAt: "2030-10-04T21:00:00Z",
@@ -174,6 +191,27 @@ test("one campaign workspace keeps setup compact, preserves drafts and scopes re
       .filter({ hasText: "Households attempted" })
       .locator("strong"),
   ).toHaveText("1");
+  const completion = results.getByRole("region", {
+    name: "Received walk completion",
+  });
+  await expect(
+    completion.getByText("Field work finished — records still missing", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    completion.getByText(/New offline work is unknown/),
+  ).toBeVisible();
+  missingRecords = 0;
+  await results
+    .getByRole("button", { name: "Refresh results", exact: true })
+    .click();
+  await expect(
+    completion.getByText("Finished and synchronized", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    completion.getByText(/Device reported 1 pending at last contact/),
+  ).toBeVisible();
   await expect(
     page.getByText(
       "Automatic deletion is not connected yet. This campaign is for synthetic testing only.",

@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: synthetic field/import slices and administrator/database foundation implemented; hosted verification and production deployment remain incomplete. Updated 2026-09-09. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical; the latest boundary is documented in the administrator foundation section.
+Status: synthetic field/import and organizer-operation slices implemented; hosted completion activation and production deployment remain incomplete. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection
 
@@ -29,6 +29,18 @@ Same-assignment refresh replaces downloaded household data, not the outbox. Prog
 The owner has created a Supabase project and administrator accounts; live app authentication and database connectivity still require verification. Do not assume free-plan suitability, backup guarantees, email delivery, or production log behavior. Commit the actual dependency lockfile.
 
 ## Browser/server boundary
+
+### Browser-scoped completion reports — 2026-09-17
+
+Completion is separate metadata, not a fourth field-operation kind. The existing v1 assignment record gains a random browser/assignment ID, monotonic report version, finished intent and current report/receipt. A report declares all locally held immutable operation IDs and the subset without receipts. Saving a visit/revision/building failure updates the manifest in the same local transaction; marking finished/resuming also commits before success feedback. New work replaces the current receipt with a new pending report. No household or visit is fabricated. Reports have an explicit 2,000-operation-per-browser/assignment safety bound; reaching it rejects the new save without altering previously saved work. This is a synthetic-pilot engineering limit, not evidence about campaign eligibility or productivity.
+
+`POST /api/completion` requires the same origin and assignment bearer boundary as field uploads, with a bounded strict IDs-only schema. Synchronization publishes the current report before uploading operations, then publishes any changed receipt/pending state afterward. Identical report retries return the original receipt; acknowledgment only updates the still-matching local report. A late response cannot overwrite a newer tab's state. Unreceived/rejected reports block assignment replacement and guarded app reload just like pending field records. No database version bump, storage clearing, new volunteer account or background-while-closed promise is introduced.
+
+Additive 011 creates cascading, RLS-enabled report storage and private invoker helpers shared by local/hosted services; 012 grants two exact SECURITY DEFINER wrappers through existing non-login field/admin executors. Runtime/provider table access remains denied. Existing credential, synthetic-stage, assignment-lock, upload-window and campaign-expiration checks apply. No prior migration changes. The update is one checksum-checked transaction and creates no completion reports or visits.
+
+Reports are immutable, versioned per browser/assignment, and record the issuing credential hash for an organizer label, never a raw token. Higher versions must retain prior declared IDs; delayed lower versions cannot replace the latest state. Known foreign-assignment operation IDs reject. The administrator snapshot calculates missing IDs from actual matching-assignment operations, not a client-supplied zero count. Undeclared later server activity conservatively calls for an updated report. Status is per browser: a link may be shared and a never-synchronized browser is unknowable. Labels and browser identifiers are not verified volunteer identities. Last-reported pending count and server receipt time are explicitly historical.
+
+Completion controls are capability-gated until the hosted wrappers exist and an assignment is refreshed. The original visit/revision/building payloads and counts are unchanged. Campaign deletion cascades through reports, but the scheduled deletion mechanism remains a separate unfinished launch requirement.
 
 ### Compatible app-update protocol
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { outcomes } from "@/lib/contracts";
 import type { results } from "@/server/service";
 import { ImportRehearsal } from "./import-rehearsal";
+import { CompletionSummary } from "./completion-summary";
 
 type Results = Awaited<ReturnType<typeof results>>;
 export function AdminApp() {
@@ -210,6 +211,14 @@ export function AdminApp() {
             Only server-received work appears here.{" "}
             {data ? `${data.counts.repeats} repeat visits.` : ""}
           </p>
+          {data?.completion
+            ?.filter((row) => row.snapshot.devices.length)
+            .map((row) => (
+              <div key={row.assignmentId}>
+                <h3>{row.name}</h3>
+                <CompletionSummary snapshot={row.snapshot} />
+              </div>
+            ))}
           {!data?.visits.length ? (
             <div className="empty">
               <span aria-hidden="true">◎</span>

@@ -20,10 +20,13 @@ import { helpAdmin } from "../../src/server/admin-help";
 import { correctionAdmin } from "../../src/server/admin-corrections";
 import { migrateCorrectionQueue } from "../../src/server/migrate-correction-queue";
 import { migrateReassignment } from "../../src/server/migrate-reassignment";
+import { migrateCompletion } from "../../src/server/migrate-completion";
+import type { CompletionReport } from "../../src/lib/completion-contracts";
 import {
   downloadHostedAssignment,
   submitHostedOperation,
   hostedFieldAdmin,
+  submitHostedCompletion,
 } from "../../src/server/hosted-field";
 import { DomainError, type VisitOperation } from "../../src/lib/contracts";
 import { hashToken } from "../../src/server/service";
@@ -2668,5 +2671,361 @@ test("reassignment is atomic, scoped and retry-safe; superseded links retain off
       )
     ).rows[0].n,
     0,
+  );
+});
+
+test("completion migration preserves data, narrowly authorizes reports and derives completion from actual receipts", async () => {
+  const runtime = postgresDatabase(reader),
+    actor = randomUUID();
+  const denied = (status: number) => (error: unknown) =>
+    error instanceof DomainError && error.status === status;
+  const campaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Completion practice", endDate: "2030-05-01" },
+    actor,
+  );
+  const { preview } = validateImport(
+    rehearsalCsv("valid-couple-and-buildings"),
+  );
+  await hostedImport(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: campaign.id,
+      caseId: "valid-couple-and-buildings",
+      digest: preview.digest,
+      confirmed: true,
+    },
+    actor,
+  );
+  const event = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Completion walk",
+      endDate: "2030-04-20",
+    },
+    actor,
+  );
+  const assignmentId = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: assignmentId,
+      campaignId: campaign.id,
+      eventId: event.savedId,
+      name: "Finishing volunteer",
+      kind: "scattered",
+      householdIds: event.workspace.households.map((h) => h.id),
+    },
+    actor,
+  );
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId,
+      label: "Completion link",
+    },
+    actor,
+  );
+  const token = issued.token!;
+  assert.equal(
+    (await downloadHostedAssignment(runtime, token)).completionReady,
+    undefined,
+  );
+  assert.equal(issued.snapshot.completion, undefined);
+  const visit: VisitOperation = {
+    id: randomUUID(),
+    visitId: randomUUID(),
+    assignmentId,
+    householdId: event.workspace.households[0].id,
+    schemaVersion: 1,
+    createdAt: new Date().toISOString(),
+    kind: "visit",
+    result: "no_answer",
+    programs: [],
+    help: null,
+    corrections: [],
+    doNotContact: false,
+  };
+  await submitHostedOperation(runtime, token, visit);
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  try {
+    await migrateCompletion(postgresDatabase(migrator));
+    await migrateCompletion(postgresDatabase(migrator));
+  } finally {
+    await migrator.end();
+  }
+  await verifyReader(runtime);
+  assert.equal(
+    (await downloadHostedAssignment(runtime, token)).completionReady,
+    true,
+  );
+  const status = async () =>
+    (await hostedFieldAdmin(runtime, { action: "status", assignmentId }, actor))
+      .snapshot;
+  assert.equal((await status()).visits.length, 1);
+  assert.deepEqual((await status()).completion!.devices, []);
+  const pending = { ...visit, id: randomUUID(), visitId: randomUUID() };
+  const report: CompletionReport = {
+    id: randomUUID(),
+    assignmentId,
+    deviceId: randomUUID(),
+    version: 1,
+    state: "finished",
+    operationIds: [visit.id, pending.id],
+    pendingIds: [pending.id],
+    createdAt: new Date().toISOString(),
+  };
+  const receipts = await Promise.all([
+    submitHostedCompletion(runtime, token, report),
+    submitHostedCompletion(runtime, token, report),
+  ]);
+  assert.deepEqual(receipts[0], receipts[1]);
+  let snapshot = await status();
+  assert.equal(snapshot.visits.length, 1);
+  assert.equal(snapshot.completion!.devices[0].missingCount, 1);
+  assert.equal(snapshot.completion!.devices[0].label, "Completion link");
+  const otherEvent = await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      id: randomUUID(),
+      campaignId: campaign.id,
+      name: "Other completion event",
+      endDate: "2030-04-21",
+    },
+    actor,
+  );
+  const otherAssignmentId = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      id: otherAssignmentId,
+      campaignId: campaign.id,
+      eventId: otherEvent.savedId,
+      name: "Separate completion scope",
+      kind: "scattered",
+      householdIds: [visit.householdId],
+    },
+    actor,
+  );
+  const otherLink = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId: otherAssignmentId,
+      label: "Other completion link",
+    },
+    actor,
+  );
+  const foreign = {
+    ...visit,
+    id: randomUUID(),
+    visitId: randomUUID(),
+    assignmentId: otherAssignmentId,
+  };
+  await submitHostedOperation(runtime, otherLink.token!, foreign);
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, {
+      ...report,
+      id: randomUUID(),
+      deviceId: randomUUID(),
+      operationIds: [foreign.id],
+      pendingIds: [],
+    }),
+    denied(403),
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, { ...report, state: "working" }),
+    denied(409),
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, {
+      ...report,
+      id: randomUUID(),
+      assignmentId: randomUUID(),
+    }),
+    denied(403),
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, {
+      ...report,
+      id: randomUUID(),
+      owner: "fixture",
+    }),
+    denied(422),
+  );
+  await assert.rejects(
+    reader.query("SELECT outreach.submit_completion_report($1,$2)", [
+      hashToken(token),
+      JSON.stringify({ ...report, id: randomUUID(), state: null }),
+    ]),
+    (e: unknown) =>
+      !!e && typeof e === "object" && "code" in e && e.code === "JF422",
+  );
+  await submitHostedOperation(runtime, token, pending);
+  snapshot = await status();
+  assert.equal(snapshot.visits.length, 2);
+  assert.equal(snapshot.completion!.devices[0].missingCount, 0);
+  const fresh = { ...visit, id: randomUUID(), visitId: randomUUID() };
+  await submitHostedCompletion(runtime, token, {
+    ...report,
+    id: randomUUID(),
+    version: 3,
+    operationIds: [...report.operationIds, fresh.id],
+    pendingIds: [fresh.id],
+  });
+  await submitHostedCompletion(runtime, token, {
+    ...report,
+    id: randomUUID(),
+    version: 2,
+    state: "working",
+  });
+  snapshot = await status();
+  assert.equal(snapshot.completion!.devices[0].version, 3);
+  assert.equal(snapshot.completion!.devices[0].missingCount, 1);
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, {
+      ...report,
+      id: randomUUID(),
+      version: 4,
+    }),
+    denied(409),
+  );
+  await submitHostedOperation(runtime, token, fresh);
+  const resumed = {
+    ...report,
+    id: randomUUID(),
+    version: 4,
+    state: "working" as const,
+    operationIds: [...report.operationIds, fresh.id],
+    pendingIds: [],
+  };
+  await submitHostedCompletion(runtime, token, resumed);
+  assert.equal((await status()).completion!.devices[0].state, "working");
+  const other = {
+    ...report,
+    id: randomUUID(),
+    deviceId: randomUUID(),
+    operationIds: [],
+    pendingIds: [],
+  };
+  await submitHostedCompletion(runtime, token, other);
+  assert.equal((await status()).completion!.devices.length, 2);
+  for (const sql of [
+    "SELECT * FROM outreach.completion_reports",
+    "DELETE FROM outreach.completion_reports",
+    "SELECT outreach.completion_snapshot(NULL)",
+    "SELECT outreach.record_completion(NULL,NULL,NULL,NULL)",
+    "SET ROLE jco_field_executor",
+  ])
+    await assert.rejects(reader.query(sql), /permission denied/);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    const access = await pool.query(
+      "SELECT has_table_privilege($1,'outreach.completion_reports','SELECT') AS table_read,has_function_privilege($1,'outreach.submit_completion_report(text,jsonb)','EXECUTE') AS submit,has_function_privilege($1,'outreach.field_completion_snapshot(uuid)','EXECUTE') AS snapshot",
+      [role],
+    );
+    assert.deepEqual(access.rows[0], {
+      table_read: false,
+      submit: false,
+      snapshot: false,
+    });
+  }
+  // Existing narrow writer permissions cannot bypass the synthetic stage gate.
+  await pool.query("DELETE FROM outreach.deployment");
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, {
+      ...resumed,
+      id: randomUUID(),
+      version: 5,
+    }),
+    /Database stage/,
+  );
+  await assert.rejects(
+    reader.query("SELECT outreach.submit_completion_report($1,$2)", [
+      hashToken(token),
+      JSON.stringify(resumed),
+    ]),
+    (e: unknown) =>
+      !!e && typeof e === "object" && "code" in e && e.code === "JF503",
+  );
+  await pool.query(
+    "INSERT INTO outreach.deployment(singleton,stage) VALUES(true,'synthetic-preview')",
+  );
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()-interval '1 hour' WHERE id=$1",
+    [event.savedId],
+  );
+  await submitHostedCompletion(runtime, token, {
+    ...resumed,
+    id: randomUUID(),
+    version: 5,
+  });
+  await assert.rejects(downloadHostedAssignment(runtime, token), denied(403));
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()-interval '73 hours' WHERE id=$1",
+    [event.savedId],
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, resumed),
+    denied(410),
+  );
+  await pool.query(
+    "UPDATE outreach.events SET ends_at=now()+interval '1 day' WHERE id=$1",
+    [event.savedId],
+  );
+  await hostedFieldAdmin(
+    runtime,
+    {
+      action: "revoke",
+      assignmentId,
+      id: issued.credentialId!,
+      confirmed: true,
+    },
+    actor,
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, report),
+    denied(403),
+  );
+  await pool.query(
+    "UPDATE outreach.credentials SET revoked=false WHERE token_hash=$1",
+    [hashToken(token)],
+  );
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaign.id],
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, report),
+    denied(410),
+  );
+  await assert.rejects(status(), denied(404));
+  await pool.query("DELETE FROM outreach.campaigns WHERE id=$1", [campaign.id]);
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.completion_reports WHERE assignment_id=$1",
+        [assignmentId],
+      )
+    ).rows[0].n,
+    0,
+  );
+  await assert.rejects(
+    submitHostedCompletion(runtime, token, report),
+    denied(401),
   );
 });

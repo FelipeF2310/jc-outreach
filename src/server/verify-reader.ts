@@ -45,6 +45,8 @@ export async function verifyReader(db: Database) {
             OR (p.oid IN (to_regprocedure('outreach.help_queue(uuid)'), to_regprocedure('outreach.update_help_status(uuid,uuid,uuid,integer,text,uuid)')) AND owner_role.rolname='jco_help_executor')
             OR (p.oid IN (to_regprocedure('outreach.correction_queue(uuid)'), to_regprocedure('outreach.update_correction_status(uuid,uuid,uuid,integer,text,uuid)')) AND owner_role.rolname='jco_correction_executor')
             OR (p.oid=to_regprocedure('outreach.reassign_households(uuid,uuid,uuid,text,uuid[],uuid)') AND owner_role.rolname='jco_assignment_executor')
+            OR (p.oid=to_regprocedure('outreach.submit_completion_report(text,jsonb)') AND owner_role.rolname='jco_field_executor')
+            OR (p.oid=to_regprocedure('outreach.field_completion_snapshot(uuid)') AND owner_role.rolname='jco_field_admin_executor')
           ), false)
           OR NOT p.prosecdef
           OR owner_role.rolcanlogin OR owner_role.rolsuper OR owner_role.rolbypassrls

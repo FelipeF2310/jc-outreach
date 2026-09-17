@@ -17,7 +17,11 @@ export async function prepareAppUpdate(target: Release) {
       "This update needs organizer assistance. Keep your saved work on this device.",
     );
   const before = await readLocal();
-  if (!before.assignment || before.records.some((r) => !r.receipt))
+  if (
+    !before.assignment ||
+    before.records.some((r) => !r.receipt) ||
+    (before.assignment.report && !before.assignment.report.receipt)
+  )
     throw Error(
       "Sync all saved work before updating, including records needing organizer review.",
     );
@@ -46,7 +50,8 @@ export async function prepareAppUpdate(target: Release) {
     !after.assignment ||
     after.assignment.assignment.id !== before.assignment.assignment.id ||
     after.assignment.sequence !== before.assignment.sequence ||
-    after.records.some((r) => !r.receipt)
+    after.records.some((r) => !r.receipt) ||
+    (after.assignment.report && !after.assignment.report.receipt)
   )
     throw Error(
       "Stored work changed. Sync all saved work and try the update again.",

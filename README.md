@@ -4,6 +4,8 @@ Mobile outreach coordination for Jersey City, with offline household visits and 
 
 Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. Migrations 006–007 and restricted-runtime checks passed on 2026-09-15. The owner confirmed named-link issuance, assignment download, local save, synchronization and administrator receipt of a new synthetic visit at 5:12:48 PM EDT that day. This is a live hosted happy-path check on the local app, not physical-phone/offline acceptance. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
 
+Current development slice (2026-09-17): browser-scoped walk-completion reporting is implemented. Volunteers can finish a walk locally, synchronize its status, and resume; administrators see completion only when that browser's declared records have arrived. It never creates door attempts. Hosted updates 011–012 and the owner walkthrough are still pending; existing field work remains available before the update. See [setup and walkthrough](docs/HOSTED-SETUP.md#walk-completion-updates-011012--operator-action-pending). HTTPS hosting/phone-link tests remain deferred, not completed.
+
 ## Established requirements
 
 - Approximately 10 concurrent volunteers; 938 household doors containing 1,157 listed people across 605 buildings.

@@ -1,5 +1,11 @@
 import { openDB, type DBSchema } from "idb";
 import {
+  completionReportSchema,
+  completionReceiptSchema,
+  type CompletionReport,
+  type CompletionReceipt,
+} from "./completion-contracts";
+import {
   operationSchema,
   type Assignment,
   type Operation,
@@ -11,6 +17,14 @@ export type StoredAssignment = {
   assignment: Assignment;
   token: string;
   sequence: number;
+  deviceId?: string;
+  reportVersion?: number;
+  finished?: boolean;
+  report?: {
+    payload: CompletionReport;
+    receipt?: CompletionReceipt;
+    rejection?: string;
+  };
 };
 export type LocalRecord = {
   id: string;
@@ -19,6 +33,148 @@ export type LocalRecord = {
   receipt?: Receipt;
   rejection?: string;
 };
+
+function refreshReport(current: StoredAssignment, records: LocalRecord[]) {
+  if (!current.assignment.completionReady) return;
+  current.deviceId ??= crypto.randomUUID();
+  const operationIds = records.map((r) => r.id);
+  if (operationIds.length > 2000)
+    throw Error(
+      "This browser has reached the practice assignment's 2,000-record limit. Previously saved work is unchanged. Contact your organizer.",
+    );
+  const pendingIds = records.filter((r) => !r.receipt).map((r) => r.id);
+  const state = current.finished ? "finished" : "working";
+  const previous = current.report?.payload;
+  if (
+    previous?.state === state &&
+    JSON.stringify(previous.operationIds) === JSON.stringify(operationIds) &&
+    JSON.stringify(previous.pendingIds) === JSON.stringify(pendingIds)
+  )
+    return;
+  const version = (current.reportVersion ?? 0) + 1;
+  const payload = completionReportSchema.parse({
+    id: crypto.randomUUID(),
+    assignmentId: current.assignment.id,
+    deviceId: current.deviceId,
+    version,
+    state,
+    operationIds,
+    pendingIds,
+    createdAt: new Date().toISOString(),
+  });
+  current.reportVersion = version;
+  current.report = { payload };
+}
+
+export async function captureCompletion(finished?: boolean) {
+  const db = await localDatabase();
+  try {
+    const tx = db.transaction(["assignments", "operations"], "readwrite", {
+      durability: "strict",
+    });
+    try {
+      const current = await tx.objectStore("assignments").get("active");
+      if (!current || !current.assignment.completionReady) {
+        await tx.done;
+        return;
+      }
+      if (
+        Date.now() >= Date.parse(current.assignment.deletionAt) ||
+        Date.now() >= Date.parse(current.assignment.eventEndsAt) + 72 * 3600000
+      )
+        throw Error(
+          "The campaign or synchronization window has ended. Saved work is unchanged.",
+        );
+      if (finished !== undefined) current.finished = finished;
+      const records = await tx
+        .objectStore("operations")
+        .index("sequence")
+        .getAll();
+      refreshReport(current, records);
+      await tx.objectStore("assignments").put(current);
+      await tx.done;
+      return current;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {
+        /* Already complete. */
+      }
+      await tx.done.catch(() => {});
+      throw error;
+    }
+  } finally {
+    db.close();
+  }
+}
+
+async function syncCompletion() {
+  const current = await captureCompletion();
+  const report = current?.report;
+  if (!current || !report || report.receipt || report.rejection) return;
+  let response: Response;
+  try {
+    response = await fetch("/api/completion", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${current.token}`,
+      },
+      body: JSON.stringify(report.payload),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw Error(
+      "Walk status upload interrupted. Saved work remains on this device; retry when connected.",
+    );
+  }
+  if (
+    !response.ok &&
+    (response.status >= 500 || [408, 424, 429].includes(response.status))
+  )
+    throw Error(
+      "Walk status upload interrupted. Retry when connected; saved work is unchanged.",
+    );
+  let receipt: CompletionReceipt | undefined;
+  if (response.ok) {
+    try {
+      receipt = completionReceiptSchema.parse(await response.json());
+    } catch {
+      throw Error(
+        "Walk status receipt could not be verified. Saved work is unchanged; retry when connected.",
+      );
+    }
+  }
+  if (receipt && receipt.reportId !== report.payload.id)
+    throw Error("Walk status receipt could not be verified.");
+  const db = await localDatabase();
+  try {
+    const tx = db.transaction("assignments", "readwrite", {
+      durability: "strict",
+    });
+    const latest = await tx.store.get("active");
+    if (latest?.report?.payload.id === report.payload.id) {
+      if (receipt) {
+        latest.report.receipt = receipt;
+        delete latest.report.rejection;
+      } else if (!latest.report.receipt) {
+        const reasons: Record<number, string> = {
+          401: "This assignment link is unavailable.",
+          403: "This link is revoked or the report is outside its assignment.",
+          409: "Walk status conflicts with an existing report.",
+          410: "The campaign or synchronization window has expired.",
+          422: "Walk status did not pass validation.",
+        };
+        latest.report.rejection = `${reasons[response.status] ?? "Walk status was rejected."} Contact the organizer; it remains saved on this device.`;
+      }
+      await tx.store.put(latest);
+    }
+    await tx.done;
+  } finally {
+    db.close();
+  }
+}
 interface LocalSchema extends DBSchema {
   assignments: { key: string; value: StoredAssignment };
   operations: {
@@ -84,7 +240,8 @@ export async function storeAssignment(assignment: Assignment, token: string) {
     if (
       current &&
       (current.token !== token || current.assignment.id !== assignment.id) &&
-      records.some((r) => !r.receipt)
+      (records.some((r) => !r.receipt) ||
+        (current.report && !current.report.receipt))
     ) {
       await tx.done;
       throw new Error(
@@ -92,7 +249,6 @@ export async function storeAssignment(assignment: Assignment, token: string) {
       );
     }
     const same = current?.assignment.id === assignment.id;
-    if (!same) await tx.objectStore("operations").clear();
     // Refresh cannot undo a suppression that has not reached the server yet.
     for (const h of assignment.households) {
       if (
@@ -106,13 +262,31 @@ export async function storeAssignment(assignment: Assignment, token: string) {
       )
         h.suppressed = true;
     }
-    await tx.objectStore("assignments").put({
+    const next: StoredAssignment = {
+      ...(same ? current! : {}),
       key: "active",
       assignment,
       token,
       sequence: same ? current!.sequence : 0,
-    });
-    await tx.done;
+    };
+    try {
+      if (next.report || (same && records.length))
+        refreshReport(
+          next,
+          same ? records.sort((a, b) => a.sequence - b.sequence) : [],
+        );
+      if (!same) await tx.objectStore("operations").clear();
+      await tx.objectStore("assignments").put(next);
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {
+        /* Already complete. */
+      }
+      await tx.done.catch(() => {});
+      throw error;
+    }
     if (!(await db.get("assignments", "active")))
       throw new Error("Could not verify assignment storage.");
   } finally {
@@ -156,6 +330,14 @@ export async function saveOperation(input: Operation) {
       );
     }
     current.sequence++;
+    const records = await tx
+      .objectStore("operations")
+      .index("sequence")
+      .getAll();
+    refreshReport(current, [
+      ...records,
+      { id: operation.id, sequence: current.sequence, operation },
+    ]);
     if (operation.kind === "visit" && operation.doNotContact) {
       const household = current.assignment.households.find(
         (h) => h.id === operation.householdId,
@@ -208,6 +390,8 @@ export async function syncLocal(onProgress: () => void) {
   const snapshot = await readLocal();
   if (!snapshot.assignment) throw new Error("No active assignment is stored.");
   const token = snapshot.assignment.token;
+  await syncCompletion();
+  onProgress();
   let rejected = 0;
   for (const row of snapshot.records) {
     if (row.receipt || row.rejection) continue;
@@ -256,6 +440,8 @@ export async function syncLocal(onProgress: () => void) {
     });
     onProgress();
   }
+  await syncCompletion();
+  onProgress();
   return { rejected };
 }
 

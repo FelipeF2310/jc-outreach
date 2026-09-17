@@ -6,6 +6,7 @@ import {
   hostedFieldAdmin,
   downloadHostedAssignment,
   submitHostedOperation,
+  submitHostedCompletion,
 } from "../../src/server/hosted-field";
 import type { Database } from "../../src/server/db-contract";
 import { DomainError } from "../../src/lib/contracts";
@@ -42,6 +43,30 @@ test("field transport requires explicit hosting, same origin and a bearer link; 
         }),
         method === "GET" ? "download" : "submit",
       );
+      assert.equal(response.status, status);
+      assert.match(response.headers.get("cache-control")!, /no-store/);
+    }
+    for (const [headers, status] of [
+      [{ Origin: settings.JCO_APP_ORIGIN }, 401],
+      [{ Authorization: "Bearer " + "a".repeat(43) }, 403],
+      [
+        {
+          Origin: "https://untrusted.example.test",
+          Authorization: "Bearer " + "a".repeat(43),
+        },
+        403,
+      ],
+    ] as const) {
+      const request = new Request(settings.JCO_APP_ORIGIN + "/api/completion", {
+        method: "POST",
+        headers,
+      });
+      Object.defineProperty(request, "body", {
+        get() {
+          throw Error("Unauthorized body was read");
+        },
+      });
+      const response = await fieldEndpoint(request, "completion");
       assert.equal(response.status, status);
       assert.match(response.headers.get("cache-control")!, /no-store/);
     }
@@ -98,5 +123,9 @@ test("hosted field service rejects raw credentials, forged authority, malformed 
   await assert.rejects(() =>
     submitHostedOperation(db, "x".repeat(43), { rows: [] }),
   );
+  await assert.rejects(() =>
+    submitHostedCompletion(db, "x".repeat(43), { rows: [] }),
+  );
+  await assert.rejects(() => submitHostedCompletion(db, "invalid", {}));
   assert.equal(calls, 0);
 });

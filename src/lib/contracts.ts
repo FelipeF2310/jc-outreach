@@ -104,6 +104,7 @@ export type Household = {
   people: Person[];
 };
 export type Assignment = {
+  completionReady?: boolean;
   id: string;
   campaignId: string;
   name: string;

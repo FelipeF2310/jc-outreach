@@ -210,7 +210,15 @@ test("permanent server rejection is visible and pending work survives reload", a
   expect(revoked.ok()).toBeTruthy();
   await page.getByRole("button", { name: "Sync now" }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "revoked" }),
+    page
+      .getByRole("alert")
+      .filter({ hasText: "revoked" })
+      .filter({ hasText: "Saved on this device; not received" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "This link is revoked or the report is outside its assignment",
+    }),
   ).toBeVisible();
   await page.reload();
   await expect(

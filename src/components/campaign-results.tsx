@@ -5,6 +5,7 @@ import type { AssignmentWorkspace } from "@/lib/assignment-admin-contracts";
 import { outcomes } from "@/lib/contracts";
 import { HelpRequestQueue } from "./help-request-queue";
 import { CorrectionReviewQueue } from "./correction-review-queue";
+import { CompletionSummary } from "./completion-summary";
 
 export function CampaignResults({
   campaignId,
@@ -147,6 +148,7 @@ function AssignmentResults({ assignmentId }: { assignmentId: string }) {
       )}
       {snapshot && (
         <>
+          <CompletionSummary snapshot={snapshot.completion} />
           <div
             className="stats result-stats"
             aria-label="Received assignment totals"

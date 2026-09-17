@@ -1,4 +1,8 @@
 import type { Database, SqlConnection } from "./db-contract";
+import {
+  completionReportSchema,
+  type CompletionReceipt,
+} from "../lib/completion-contracts";
 import { createHash, randomBytes } from "node:crypto";
 import {
   DomainError,
@@ -120,6 +124,13 @@ export async function downloadAssignment(
       eventEndsAt: access.event_ends_at.toISOString(),
       deletionAt: access.deletion_at.toISOString(),
       synthetic: true,
+      ...((
+        await tx.query<{ ready: boolean }>(
+          "SELECT to_regprocedure('outreach.record_completion(uuid,uuid,text,jsonb)') IS NOT NULL AS ready",
+        )
+      ).rows[0]?.ready
+        ? { completionReady: true }
+        : {}),
       households: households.rows.map((h) => ({
         id: h.id,
         buildingId: h.building_id,
@@ -137,6 +148,54 @@ export async function downloadAssignment(
       programs: practicePrograms(),
     };
   });
+}
+
+export async function submitCompletion(
+  db: Database,
+  token: string,
+  input: unknown,
+  now = new Date(),
+): Promise<CompletionReceipt> {
+  const parsed = completionReportSchema.safeParse(input);
+  if (!parsed.success)
+    throw new DomainError(
+      422,
+      "Invalid completion report. Saved work is unchanged.",
+    );
+  return db
+    .transaction(async (tx) => {
+      const access = await authorize(tx, token, "write", now);
+      await tx.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1,73401834))",
+        [access.id],
+      );
+      const result = await tx.query<{ receipt: CompletionReceipt }>(
+        "SELECT outreach.record_completion($1,$2,$3,$4::jsonb) AS receipt",
+        [
+          access.id,
+          access.campaign_id,
+          hashToken(token),
+          JSON.stringify(parsed.data),
+        ],
+      );
+      return result.rows[0].receipt;
+    })
+    .catch((error: unknown) => {
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? error.code
+          : undefined;
+      if (code === "JF403")
+        throw new DomainError(403, "Report is outside your assignment.");
+      if (code === "JF409" || code === "23505")
+        throw new DomainError(
+          409,
+          "Walk status conflicts with a saved report. Contact your organizer.",
+        );
+      if (code === "JF422" || code === "22P02" || code === "22007")
+        throw new DomainError(422, "Invalid completion report.");
+      throw error;
+    });
 }
 
 export async function submitOperation(
@@ -281,6 +340,14 @@ export async function submitOperation(
 }
 
 export async function results(db: Database) {
+  const completion = await db.query<{
+    assignmentId: string;
+    name: string;
+    snapshot: import("../lib/completion-contracts").CompletionSnapshot;
+  }>(
+    `SELECT a.id AS "assignmentId",a.name,outreach.completion_snapshot(a.id) AS snapshot
+     FROM outreach.assignments a JOIN outreach.campaigns c ON c.id=a.campaign_id WHERE c.deletion_at>now() ORDER BY a.id`,
+  );
   const visits = await db.query<{
     id: string;
     address: string;
@@ -310,6 +377,7 @@ export async function results(db: Database) {
     "SELECT a.id,a.name,c.deletion_at FROM outreach.assignments a JOIN outreach.campaigns c ON c.id=a.campaign_id WHERE c.deletion_at>now()",
   );
   return {
+    completion: completion.rows,
     visits: visits.rows,
     counts: counts.rows[0],
     assignments: assignments.rows,
