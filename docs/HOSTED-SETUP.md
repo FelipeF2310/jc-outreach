@@ -21,6 +21,16 @@ Failure handling: each due campaign is atomic; a child failure leaves the entire
 
 **Restore/backup gate:** identify the actual provider backup retention period before real data; no value is assumed here. Restore into an isolated non-public environment, with runtime/provider access disabled; verify original deadlines/RLS/retention functions, clean expired records and verify schedule/health before reopening access. Never modify deadlines to make restored expired campaigns active. External exports need administrator deletion; disconnected phone cleanup is best effort. Live-table deletion is not a claim of immediate backup erasure.
 
+### Disposable retention rehearsal — prepared, awaiting owner run
+
+The owner approved ONE new disposable synthetic fixture on 2026-09-17. Open ignored `private/test-retention.command`, confirm **TEST-RETENTION**, then enter the existing database-owner password in the hidden prompt. Do not enter passwords in chat. This is not another migration or schedule setup.
+
+The helper creates the clearly labeled `Synthetic: DISPOSABLE retention verification` campaign transactionally, using only built-in synthetic people. It includes all 20 current campaign/child/history table groups, an open help request and a private test credential retained only in process memory. An accelerated clock applies only to this newly created fixture before commit: its deadline is about two minutes away, with the campaign end exactly 30 New York calendar days earlier. Its event timestamps follow that simulated past end. Existing practice campaigns, records, deadlines, credentials and schedule are not modified. The fixture's field operations are artificial lifecycle test evidence, not a real historical walk.
+
+Leave Terminal open for roughly 2–4 minutes and avoid practice edits during the check. It waits for the existing automatic worker, never manually invokes deletion, and stops without manual cleanup after six minutes. Success requires zero remaining fixture records, an actual successful Cron receipt after its deadline, matching deletion-counter progress, rejected old-credential reads/uploads and unchanged other-record fingerprints. Restricted-runtime fixture visibility is checked before waiting. No token, password, raw database error or record contents are printed.
+
+Share the sanitized result. If interrupted or unsuccessful, **do not rerun**: the fixture may already have committed or been removed. Share its printed disposable campaign ID for an exact read-only follow-up. A duplicate pending fixture or unrelated campaign approaching deletion makes setup refuse. An unrelated concurrent practice edit makes preservation evidence inconclusive. The helper does not repair/reset data or alter scheduling. The local native tests use simulated Cron metadata; only the owner-run hosted result can establish this milestone. Live-table cleanup does not prove backup erasure, disconnected-device cleanup or hosted failure/retry behavior.
+
 ## Existing modes and boundaries
 
 - `npm run demo`: loopback-only PGlite practice console. Does not send email or use the hosted database. `/admin` honestly reports that hosted sign-in is not configured.

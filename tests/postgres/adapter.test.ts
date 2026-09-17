@@ -42,6 +42,15 @@ import {
 } from "../../src/server/import-rehearsal";
 import { validateImport } from "../../src/server/import-validation";
 import { downloadAssignment, submitOperation } from "../../src/server/service";
+import {
+  prepareRetentionRehearsal,
+  inspectRetentionRehearsal,
+  verifyDeletedCredential,
+} from "../../scripts/lib/retention-rehearsal";
+import {
+  RETENTION_COMMAND,
+  RETENTION_JOB,
+} from "../../src/server/retention-schedule";
 
 let directory: string, bin: string, pool: Pool, reader: Pool;
 let started = false;
@@ -3409,4 +3418,120 @@ test("retention worker deletes only due campaigns, rolls back cascade failures, 
     "INSERT INTO outreach.deployment VALUES(true,'synthetic-preview')",
   );
   await verifyReader(runtime);
+});
+
+test("operator rehearsal is atomic, refuses unsafe setup, preserves existing data and requires a scheduler receipt", async () => {
+  // This test owns an isolated temporary cluster. Cron tables below are explicit
+  // stubs: only the separate live operator run can establish scheduled execution.
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  const owner = postgresDatabase(migrator),
+    runtime = postgresDatabase(reader);
+  try {
+    await pool.query("SELECT outreach.run_retention()");
+    const initial = (
+      await pool.query("SELECT count(*)::int AS n FROM outreach.campaigns")
+    ).rows[0].n;
+    await assert.rejects(prepareRetentionRehearsal(owner));
+    assert.equal(
+      (await pool.query("SELECT count(*)::int AS n FROM outreach.campaigns"))
+        .rows[0].n,
+      initial,
+    );
+    await pool.query(`CREATE SCHEMA cron;
+      CREATE TABLE cron.job(jobid bigint PRIMARY KEY, jobname text, username text, active boolean, schedule text, command text, database text);
+      CREATE TABLE cron.job_run_details(jobid bigint, status text, start_time timestamptz, end_time timestamptz);
+      GRANT USAGE ON SCHEMA cron TO "jco-test-migrator";
+      GRANT SELECT ON ALL TABLES IN SCHEMA cron TO "jco-test-migrator"`);
+    await pool.query(
+      "INSERT INTO cron.job VALUES(1,$1,'jco-test-migrator',false,'* * * * *',$2,'postgres')",
+      [RETENTION_JOB, RETENTION_COMMAND],
+    );
+    await assert.rejects(
+      prepareRetentionRehearsal(owner),
+      /schedule must match/,
+    );
+    await pool.query("UPDATE cron.job SET active=true");
+    // A late setup failure must roll back the new campaign and every child.
+    await pool.query(`CREATE FUNCTION outreach.test_rehearsal_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Fixture failure'; END $$;
+      CREATE TRIGGER test_rehearsal_failure BEFORE INSERT ON outreach.import_rehearsals FOR EACH ROW EXECUTE FUNCTION outreach.test_rehearsal_failure()`);
+    await assert.rejects(prepareRetentionRehearsal(owner), /Fixture failure/);
+    assert.equal(
+      (await pool.query("SELECT count(*)::int AS n FROM outreach.campaigns"))
+        .rows[0].n,
+      initial,
+    );
+    await pool.query(
+      "DROP TRIGGER test_rehearsal_failure ON outreach.import_rehearsals; DROP FUNCTION outreach.test_rehearsal_failure()",
+    );
+    const fixture = await prepareRetentionRehearsal(owner);
+    const visible = await readRetentionStatus(runtime, {
+      campaignId: fixture.campaignId,
+    });
+    assert.ok(visible.ready);
+    assert.equal(visible.selected?.campaignId, fixture.campaignId);
+    assert.equal(visible.selected?.openHelpRequests, 1);
+    assert.equal(
+      (await pool.query("SELECT count(*)::int AS n FROM outreach.campaigns"))
+        .rows[0].n,
+      initial + 1,
+    );
+    await assert.rejects(
+      prepareRetentionRehearsal(owner),
+      /no pending rehearsal/,
+    );
+    assert.equal(
+      (await inspectRetentionRehearsal(owner, fixture)).complete,
+      false,
+    );
+    const timing = await pool.query(
+      "SELECT deletion_at=((end_at AT TIME ZONE 'America/New_York')+interval '30 days') AT TIME ZONE 'America/New_York' AS valid FROM outreach.campaigns WHERE id=$1",
+      [fixture.campaignId],
+    );
+    assert.equal(timing.rows[0].valid, true);
+    // Accelerate only this test-created fixture in the isolated cluster.
+    const expired = new Date(Date.now() - 1000).toISOString();
+    await pool.query(
+      "UPDATE outreach.campaigns SET deletion_at=$2::timestamptz,end_at=(($2::timestamptz AT TIME ZONE 'America/New_York')-interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+      [fixture.campaignId, expired],
+    );
+    const accelerated = { ...fixture, deletionAt: expired };
+    await pool.query("SELECT outreach.run_retention()");
+    assert.deepEqual(
+      await inspectRetentionRehearsal(owner, accelerated),
+      { complete: false, remaining: 0 },
+      "deleted rows without Cron receipt cannot pass",
+    );
+    await pool.query(
+      "INSERT INTO cron.job_run_details VALUES(1,'succeeded',now(),now())",
+    );
+    assert.deepEqual(await inspectRetentionRehearsal(owner, accelerated), {
+      complete: true,
+      remaining: 0,
+      tablesChecked: 20,
+      scheduledRunConfirmed: true,
+    });
+    await verifyDeletedCredential(runtime, fixture);
+    assert.equal(
+      (await pool.query("SELECT count(*)::int AS n FROM outreach.campaigns"))
+        .rows[0].n,
+      initial,
+    );
+    // A competing unrelated edit makes preservation inconclusive, never success.
+    await pool.query(
+      "INSERT INTO outreach.campaigns(id,name,deletion_at) VALUES($1,'Unrelated concurrent fixture',now()+interval '1 year')",
+      [randomUUID()],
+    );
+    await assert.rejects(
+      inspectRetentionRehearsal(owner, accelerated),
+      /Unrelated records changed/,
+    );
+    await verifyReader(runtime);
+  } finally {
+    await migrator.end();
+  }
 });
