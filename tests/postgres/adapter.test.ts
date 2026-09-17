@@ -1,6 +1,6 @@
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, chmod } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -46,7 +46,9 @@ import {
   prepareRetentionRehearsal,
   inspectRetentionRehearsal,
   verifyDeletedCredential,
+  retentionTables,
 } from "../../scripts/lib/retention-rehearsal";
+import type { Database } from "../../src/server/db-contract";
 import {
   RETENTION_COMMAND,
   RETENTION_JOB,
@@ -3533,5 +3535,253 @@ test("operator rehearsal is atomic, refuses unsafe setup, preserves existing dat
     await verifyReader(runtime);
   } finally {
     await migrator.end();
+  }
+});
+
+test("actual isolated archive restore preserves expiry and permissions, rolls back failed cleanup, then safely retries", async () => {
+  // All connections use the random Unix-socket cluster created by this file.
+  // Never read DATABASE_URL or any hosted data. Existing global TEST roles are
+  // shared across these two local databases; this is not a provider restore.
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  const restored = new Pool({
+    host: directory,
+    port: 55439,
+    database: "jco_restore_fixture",
+    user: "jco_test_owner",
+  });
+  const blockedReader = new Pool({
+    host: directory,
+    port: 55439,
+    database: "jco_restore_fixture",
+    user: "jco_admin_reader",
+  });
+  const archive = join(directory, "synthetic-retention.dump");
+  const owner = postgresDatabase(restored);
+  // Probe restored application privileges without reopening database CONNECT to
+  // the runtime. SET LOCAL ROLE is confined to this isolated operator session.
+  const runtime: Database = {
+    ...owner,
+    transaction: (work) =>
+      owner.transaction(async (tx) => {
+        await tx.exec("SET LOCAL ROLE jco_admin_reader");
+        return work(tx);
+      }),
+  };
+  const snapshot = async (database: Pool) => {
+    const result: Record<string, { count: number; digest: string }> = {};
+    for (const table of retentionTables) {
+      result[table] = (
+        await database.query(
+          `SELECT count(*)::int AS count, md5(coalesce(string_agg(md5(to_jsonb(t)::text),'' ORDER BY md5(to_jsonb(t)::text)),'')) AS digest FROM outreach.${table} t`,
+        )
+      ).rows[0];
+    }
+    return result;
+  };
+  try {
+    await pool.query("SELECT outreach.run_retention()");
+    const fixture = await prepareRetentionRehearsal(postgresDatabase(migrator));
+    // Simulate a backup containing expired records awaiting cleanup. Set the
+    // fixture clock BEFORE capture; never extend/rewrite deadlines on restore.
+    const expiredAt = new Date(Date.now() - 1000).toISOString();
+    await pool.query(
+      "UPDATE outreach.campaigns SET deletion_at=$2::timestamptz,end_at=(($2::timestamptz AT TIME ZONE 'America/New_York')-interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+      [fixture.campaignId, expiredAt],
+    );
+    const captured = await snapshot(pool);
+    const versions = (
+      await pool.query(
+        "SELECT name,checksum FROM outreach.schema_migrations ORDER BY name",
+      )
+    ).rows;
+    execFileSync(
+      join(bin, "pg_dump"),
+      [
+        "--host",
+        directory,
+        "--port",
+        "55439",
+        "--username",
+        "jco_test_owner",
+        "--dbname",
+        "postgres",
+        "--no-password",
+        "--format=custom",
+        "--schema=outreach",
+        "--file",
+        archive,
+      ],
+      { stdio: "pipe", timeout: 30000 },
+    );
+    await chmod(archive, 0o600);
+    // Source cleanup proves that restoring really reintroduces previously
+    // deleted fixture rows. It is not represented as scheduled-run evidence.
+    await pool.query("SELECT outreach.run_retention()");
+    const cleanedSource = await snapshot(pool);
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM outreach.campaigns WHERE id=$1",
+          [fixture.campaignId],
+        )
+      ).rows[0].n,
+      0,
+    );
+
+    await pool.query("CREATE DATABASE jco_restore_fixture TEMPLATE template0");
+    await pool.query(
+      "REVOKE CONNECT ON DATABASE jco_restore_fixture FROM PUBLIC, jco_admin_reader, anon, authenticated, service_role",
+    );
+    await assert.rejects(
+      blockedReader.query("SELECT 1"),
+      /permission denied for database/,
+    );
+    execFileSync(
+      join(bin, "pg_restore"),
+      [
+        "--host",
+        directory,
+        "--port",
+        "55439",
+        "--username",
+        "jco_test_owner",
+        "--dbname",
+        "jco_restore_fixture",
+        "--no-password",
+        "--single-transaction",
+        "--exit-on-error",
+        archive,
+      ],
+      { stdio: "pipe", timeout: 30000 },
+    );
+    assert.deepEqual(
+      await snapshot(restored),
+      captured,
+      "archive restores data across every campaign table exactly",
+    );
+    assert.deepEqual(
+      (
+        await restored.query(
+          "SELECT name,checksum FROM outreach.schema_migrations ORDER BY name",
+        )
+      ).rows,
+      versions,
+    );
+    assert.equal(
+      (
+        await restored.query(
+          "SELECT deletion_at FROM outreach.campaigns WHERE id=$1",
+          [fixture.campaignId],
+        )
+      ).rows[0].deletion_at.toISOString(),
+      expiredAt,
+    );
+    assert.equal(
+      (await restored.query("SELECT to_regclass('cron.job') AS job")).rows[0]
+        .job,
+      null,
+      "outreach-only restore must not install or start external jobs",
+    );
+    await assert.rejects(
+      blockedReader.query("SELECT 1"),
+      /permission denied for database/,
+    );
+    await runtime.transaction(async (tx) => {
+      await verifyReader({ ...tx, transaction: async (work) => work(tx) });
+    });
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      const permissions = (
+        await restored.query(
+          "SELECT has_schema_privilege($1,'outreach','USAGE') AS schema_access,has_function_privilege($1,'outreach.run_retention()','EXECUTE') AS deletion,has_table_privilege($1,'outreach.people','SELECT') AS people",
+          [role],
+        )
+      ).rows[0];
+      assert.deepEqual(permissions, {
+        schema_access: false,
+        deletion: false,
+        people: false,
+      });
+    }
+    const assertExpired = async () => {
+      assert.ok(
+        !(await listHostedCampaigns(runtime)).some(
+          (c) => c.id === fixture.campaignId,
+        ),
+      );
+      for (const probe of [
+        () => downloadHostedAssignment(runtime, fixture.token),
+        () => submitHostedOperation(runtime, fixture.token, fixture.visit),
+      ])
+        await assert.rejects(
+          probe(),
+          (error: unknown) =>
+            error instanceof DomainError && error.status === 410,
+        );
+    };
+    await assertExpired();
+    // Fault exists only in the newly created restore-test database, never in
+    // Supabase or the source database. Late failure must roll back all children.
+    await restored.query(`CREATE FUNCTION outreach.test_restore_cleanup_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'PRIVATE_FAULT_DETAIL'; END $$;
+      CREATE TRIGGER test_restore_cleanup_failure BEFORE DELETE ON outreach.help_requests FOR EACH ROW EXECUTE FUNCTION outreach.test_restore_cleanup_failure()`);
+    await restored.query("SELECT outreach.run_retention()");
+    assert.deepEqual(
+      await snapshot(restored),
+      captured,
+      "failed cascade must not partially erase restored data",
+    );
+    const failure = await readRetentionStatus(runtime, {
+      campaignId: fixture.campaignId,
+    });
+    assert.ok(failure.ready);
+    assert.equal(failure.failedCampaigns, 1);
+    assert.equal(failure.overdueCampaigns, 1);
+    assert.equal(failure.selected, null);
+    assert.equal(
+      JSON.stringify(
+        (await restored.query("SELECT * FROM outreach.retention_failures"))
+          .rows,
+      ).includes("PRIVATE_FAULT_DETAIL"),
+      false,
+    );
+    await assertExpired();
+    await restored.query(
+      "DROP TRIGGER test_restore_cleanup_failure ON outreach.help_requests; DROP FUNCTION outreach.test_restore_cleanup_failure()",
+    );
+    await restored.query("SELECT outreach.run_retention()");
+    assert.deepEqual(
+      await snapshot(restored),
+      cleanedSource,
+      "retry removes all expired descendants while active records survive",
+    );
+    await verifyDeletedCredential(runtime, fixture);
+    const recovered = await readRetentionStatus(runtime, { campaignId: null });
+    assert.ok(recovered.ready);
+    assert.equal(recovered.failedCampaigns, 0);
+    assert.equal(recovered.overdueCampaigns, 0);
+    await restored.query("SELECT outreach.run_retention()");
+    assert.deepEqual(
+      await snapshot(restored),
+      cleanedSource,
+      "repeat cleanup is a no-op",
+    );
+    assert.deepEqual(
+      await snapshot(pool),
+      cleanedSource,
+      "restore target never mutates its source",
+    );
+    await assert.rejects(
+      blockedReader.query("SELECT 1"),
+      /permission denied for database/,
+    );
+  } finally {
+    await Promise.all([migrator.end(), restored.end(), blockedReader.end()]);
+    await rm(archive, { force: true });
+    // The test suite stops and removes its entire task-owned temporary cluster.
+    // No generic DROP/restore/cleanup command is pointed at a configured server.
   }
 });
