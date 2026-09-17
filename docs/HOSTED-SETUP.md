@@ -135,11 +135,11 @@ Owner walkthrough (synthetic only):
 
 Local tests cover pending offline handoff, empty assignments, competing saves and expiration; those are not owner-confirmed hosted or physical-phone evidence. Actual phones need the later HTTPS preview, not this computer's localhost link. Scheduled deletion and real-data gates remain open.
 
-### Walk completion updates 011–012 — operator action pending
+### Walk completion updates 011–012 — applied and read-verified
 
-Status on 2026-09-17: implemented and locally tested, not applied to Supabase. Existing applied 002–010 remain unchanged. No real-data use is enabled. The ignored `private/update-completion.command` asks for **COMPLETION-UPDATE** and the existing database-owner password through hidden stdin (not the runtime reader password). It runs `scripts/migrate-completion.ts --password-stdin`, verifies TLS/project/stage and previous checksums, then applies 011–012 transactionally. Existing campaigns, links, visits, reports and passwords remain; no walk is marked finished by the update. Do not initialize or reset the database.
+Status on 2026-09-17: the owner's update starting at 16:16:05 UTC succeeded. Independent restricted-runtime verification at 16:21:01 UTC passed the privilege audit, both completion capabilities and status reads for two assignments across three active synthetic campaigns; zero browser reports existed at that check. Applied 002–012 are now immutable. Do not rerun this completed update or initialize/reset the database. The operator procedure is retained for reference: ignored `private/update-completion.command` requires **COMPLETION-UPDATE**, hidden owner-password stdin and verified TLS, applying 011–012 in one checksum-checked transaction without creating visits/reports or changing existing passwords. No real-data use is enabled.
 
-After successful owner output, independently verify the restricted-runtime audit plus `outreach.submit_completion_report(text,jsonb)` and `outreach.field_completion_snapshot(uuid)` capabilities and safe snapshot reads. Only then run this synthetic walkthrough:
+The restricted-runtime audit, `outreach.submit_completion_report(text,jsonb)` and `outreach.field_completion_snapshot(uuid)` capabilities, and safe snapshot reads have passed. Next run this synthetic walkthrough; it has not yet been owner-confirmed:
 
 1. Keep the existing volunteer browser and active link. Do not clear storage, revoke access or issue another link merely for this test. Sync pending work first. Load the new app using its guarded update action; an older page without that feature needs an online assignment refresh and ordinary browser reload.
 2. Refresh assignment after the update so completion capability is downloaded. Confirm existing records/receipts remain. At the bottom of the household list, choose **Field work finished**, then confirm. Unvisited doors must stay unvisited. This initially says **Field work finished — waiting to sync**.

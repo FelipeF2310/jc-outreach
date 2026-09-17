@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: synthetic field/import and organizer-operation slices implemented; hosted completion activation and production deployment remain incomplete. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
+Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates are applied and restricted reads verified, with the owner walkthrough and production deployment still pending. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection
 
