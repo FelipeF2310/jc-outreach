@@ -271,13 +271,12 @@ export function FieldApp() {
         {appUpdating ? "Preparing app update. Keep this page open." : ""}
       </p>
       <header className="field-header" inert={appUpdating}>
-        <a
-          href="/"
-          className="field-brand"
-          aria-label="JCO organizer workspace"
-        >
-          <span className="mark">J</span> JCO
-        </a>
+        <div className="field-brand">
+          <span className="mark" aria-hidden="true">
+            J
+          </span>{" "}
+          JCO
+        </div>
         <span className={`connection ${online ? "" : "offline"}`}>
           <i />
           {online ? "Network available" : "Offline"}
