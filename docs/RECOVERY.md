@@ -24,20 +24,20 @@ The connected application database role cannot establish account billing, backup
 
 | Project-specific evidence | Status |
 | --- | --- |
-| Current organization/project plan | Awaiting dashboard confirmation |
-| Database → Backups status and available restore points | Awaiting dashboard confirmation |
-| Daily backup/PITR enabled state and configured window | Unverified; do not assume enabled |
+| Current organization/project plan | Owner-reported dashboard evidence, 2026-09-17: Free |
+| Database → Backups status and available restore points | Owner reports Free upgrade notice and empty backup list |
+| Daily backup/PITR enabled state and configured window | Owner reports neither available scheduled backups nor enabled PITR; no recoverable window established |
 | Pausing policy applicable to this project | Unverified; must resolve before launch |
 | Other copies: exports, dumps, storage, logs, support/paused-project backups | Inventory and actual lifetimes unverified |
 | Backup owner, access controls, encryption, automatic expiry | Not approved/configured |
 | Acceptable data-loss window and recovery time | Must be established before selecting recovery policy |
 | Actual provider restore drill and post-restore scheduler verification | Not performed |
 
-To supply the first evidence, open the project's **Database → Backups** page and report the plan, available backups/restore-point dates or upgrade notice. Do not click Restore, enable an add-on, download resident data or share credentials. Do not infer a retention period from a single visible backup date.
+The owner supplied the dashboard findings above without restoring or upgrading. These are owner-reported observations, not an engineer inspection of provider internals. Generic daily-backup page copy does not override the project's Free-plan notice. Other retained provider copies and their lifetimes remain unverified.
 
 ## Production backup decision
 
-Free synthetic development can continue while these gates remain open. For real outreach, prefer an always-on configuration with a supported, tested backup path; any paid-plan selection needs owner approval. Do not introduce an unmanaged resident-data dump as an automatic workaround.
+The owner accepted continuing Free synthetic development while these gates remain open. Before real outreach, select and verify an always-on configuration with a supported, tested backup path; any paid-plan activation still needs explicit approval. Do not introduce an unmanaged resident-data dump or an archive table as an automatic workaround. The existing verified deletion schedule stays in place; an archive retaining the same identifying records would not satisfy deletion.
 
 The approved policy must identify who can restore, how much recent work might be lost, where every backup lives, and when all backup copies expire. A live-record deletion at campaign end plus 30 days is separate from aging those records out of earlier immutable backups. Record the actual additional window and obtain the operational owner's approval; do not promise instantaneous erasure from backups. “No accessible backups on Free” is neither a recoverability guarantee nor proof of no retained provider copy.
 

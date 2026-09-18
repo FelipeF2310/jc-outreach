@@ -8,7 +8,7 @@ Current development slice (2026-09-17): browser-scoped walk-completion reporting
 
 Latest slice (2026-09-17): **the hosted scheduled-deletion rehearsal passed**. The owner-run helper confirmed removal of its disposable campaign across all 20 populated table groups, including an open help request, a successful Cron receipt, rejected old-credential reads/uploads and unchanged practice records/deadlines. Independent READ ONLY verification at 23:18:53 UTC confirms three active campaigns, one deletion, zero overdue/failed campaigns and intact restricted permissions. See [retention evidence](docs/HOSTED-SETUP.md#disposable-retention-rehearsal--hosted-success-confirmed). Hosted failure/retry, backup, real-data and physical-device gates remain open.
 
-Recovery follow-up: an actual local synthetic archive restore now passes expiry, permissions, failed-cleanup rollback and retry checks across all 20 table groups. It uses only private temporary databases, not Supabase backups. See the [recovery runbook](docs/RECOVERY.md). Current project backup/plan settings still need dashboard confirmation; no hosted restore, paid upgrade or fault injection occurred.
+Recovery follow-up: an actual local synthetic archive restore now passes expiry, permissions, failed-cleanup rollback and retry checks across all 20 table groups. It uses only private temporary databases, not Supabase backups. See the [recovery runbook](docs/RECOVERY.md). The owner reports Free plan, no available scheduled backups and no PITR. Continue synthetic work only; no hosted restore, paid upgrade or fault injection occurred. Next is [HTTPS deployment and two-phone testing](docs/DEPLOYMENT.md); the owner authorized publishing the reviewed app branch to GitHub, but no HTTPS deployment is complete.
 
 ## Established requirements
 
@@ -32,6 +32,7 @@ Recovery follow-up: an actual local synthetic archive restore now passes expiry,
 - [Acceptance checklist](docs/ACCEPTANCE.md)
 - [Hosted synthetic-preview setup](docs/HOSTED-SETUP.md)
 - [Backup and recovery safety](docs/RECOVERY.md)
+- [HTTPS synthetic deployment](docs/DEPLOYMENT.md)
 - [Synthetic fixture instructions](tests/fixtures/README.md)
 
 ## Try the local synthetic build
