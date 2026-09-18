@@ -15,12 +15,14 @@ export function CampaignAssignments({
   deletionAt,
   ready,
   fieldReady = false,
+  live = false,
 }: {
   campaignId: string;
   administratorId: string;
   deletionAt: string;
   ready: boolean;
   fieldReady?: boolean;
+  live?: boolean;
 }) {
   const [workspace, setWorkspace] = useState<AssignmentWorkspace>();
   const [open, setOpen] = useState(false);
@@ -379,8 +381,9 @@ export function CampaignAssignments({
                 aria-label="Assignment builder"
               >
                 <p className="fine">
-                  Synthetic preparation only. Use practice event and volunteer
-                  labels.{" "}
+                  {live
+                    ? "Choose an event and label for the volunteer or pair. "
+                    : "Synthetic preparation only. Use practice event and volunteer labels. "}
                   {fieldReady
                     ? "Private links give access only to the saved assignment."
                     : "No private volunteer links are issued in this step."}

@@ -15,6 +15,7 @@ export function AdminSignIn() {
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignsError, setCampaignsError] = useState("");
   const [campaignRefresh, setCampaignRefresh] = useState(0);
+  const [live, setLive] = useState(false);
   async function api(path: string, method = "GET", body?: unknown) {
     const response = await fetch(`/api/admin/${path}`, {
       method,
@@ -99,7 +100,10 @@ export function AdminSignIn() {
         const body = await response.json();
         if (!response.ok)
           throw new Error(body.error ?? "Unable to load saved campaigns.");
-        if (active) setCampaigns(body.campaigns);
+        if (active) {
+          setCampaigns(body.campaigns);
+          setLive(body.live === true);
+        }
       })
       .catch((failure: unknown) => {
         if (active)
@@ -129,12 +133,14 @@ export function AdminSignIn() {
         await api("session", "DELETE");
         setIdentity(undefined);
         setCampaigns(undefined);
+        setLive(false);
         setMessage("Signed out.");
       }
     } catch (e) {
       if (action === "signout") {
         setIdentity(undefined);
         setCampaigns(undefined);
+        setLive(false);
       }
       setError(e instanceof Error ? e.message : "Please retry.");
     } finally {
@@ -155,8 +161,9 @@ export function AdminSignIn() {
         </p>
       )}
       <p className={identity ? "preview-banner" : "fine"}>
-        Synthetic preview · Practice records only. Real resident uploads remain
-        disabled.
+        {live
+          ? "Resident outreach · Assigned households only. This app does not determine eligibility."
+          : "Synthetic preview · Practice records only. Real resident uploads remain disabled."}
       </p>
       {identity ? (
         <section aria-label="Signed-in administrator">
@@ -189,6 +196,7 @@ export function AdminSignIn() {
             <AdminWorkspace
               key={identity.id}
               administratorId={identity.id}
+              live={live}
               campaigns={campaigns}
               onCreated={(campaign) => {
                 setCampaigns((existing) => [

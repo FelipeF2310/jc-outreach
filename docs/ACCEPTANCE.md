@@ -8,6 +8,8 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Import and authorization
 
+Local evidence update (2026-09-18): the new general CSV engine and unregistered administrator adapter pass authorization-before-body, streamed-size, bounded-preview, source-digest, minimization, direct database validation, retry/conflict, expiry and rollback tests. Native PostgreSQL also passes a 1,200-person import → selected assignment → minimal download → repeat-safe visit submission. These are synthetic local checks, not a hosted upload or browser test. Migration 014 is unapplied/ungranted and real ingress remains closed; no production checkbox is closed by this result. Details: [CSV-INTAKE.md](CSV-INTAKE.md).
+
 - [ ] I01: Two distinct people with one validated household key and unit create one door.
 - [ ] I02: Missing, unknown, malformed, or Tier 3 input rejects the entire import without committing resident rows.
 - [ ] I03: Conflicting units/addresses are reported without silently guessing a grouping.
@@ -20,7 +22,7 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 - [ ] A02: Volunteer endpoints and local storage exclude matching fields and unrelated residents.
 - [ ] A03: A provider-authenticated but non-allowlisted user cannot enter administrator endpoints.
 - [ ] A04: Simultaneous assignment requests cannot intentionally assign the same household twice in one event.
-- [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials.
+- [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials. Role-scoped logging protection passed native synthetic canary/rollback tests, owner-run Supabase effective-state/privilege verification at 2026-09-18T03:31:34Z and an independent 03:34:59Z read-only audit (13 controls). Remaining provider request-body/temp-storage/telemetry boundaries are still open. See [UPLOAD-SAFETY.md](UPLOAD-SAFETY.md). This partial evidence does not close A05.
 - [ ] A06: Approved confirmed administrators can sign in with email/password, reload, refresh sessions and sign out on the actual HTTPS origin. Incorrect passwords, unconfirmed accounts and non-allowlisted identities are rejected. No signup/email-code endpoint is exposed by the app.
 - [ ] A07: Passwords are absent from application storage, URLs, responses and hosting logs. Provider abuse/rate-limit controls and a secure administrator recovery process are tested before launch; recovery UI guidance alone is not sufficient.
 
@@ -83,6 +85,8 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 - [ ] D03: Database migrations and rollback/recovery steps are documented and exercised on synthetic data.
 
 ## Physical-phone session record
+
+Owner-reported hosted check (2026-09-17 EDT): existing campaigns appear after administrator sign-in/reload at `https://jc-outreach-test.vercel.app/admin`. The owner reports the basic synthetic no-answer/offline save/browser close-reopen/sync/administrator receipt walkthrough passed on both phones. This provides basic S03/happy-path evidence, not the whole session below: exact model, OS/browser version, build marker and browser versus home-screen context were not captured. Do not infer successful phone revision, lost-acknowledgment, partial/rejected sync, mixed-record or release-update checks from this confirmation.
 
 The user has two phones. Record exact models, OS versions, browser versions, build/commit, HTTPS origin, and browser versus home-screen context when testing. Do not fill these with assumed values.
 

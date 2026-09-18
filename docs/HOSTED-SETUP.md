@@ -1,5 +1,18 @@
 # Hosted synthetic-preview setup
 
+## Runtime logging protection — applied and verified
+
+Use the reviewed [logging protection procedure](UPLOAD-SAFETY.md#operator-action),
+not bootstrap or a migration reset. The owner-run helper changes only eight
+logging defaults on `jco_admin_reader`, saves the prior targeted configuration
+privately, recycles idle application sessions and checks the effective restricted
+connection. It does not change campaign records, passwords, grants or schedules.
+The owner-run update at 2026-09-18T03:31:34.472Z passed all 13 effective controls,
+preserved restricted permissions and left zero old sessions after recycling one
+idle connection. Independent read-only verification at 03:34:59.604Z repeated the
+passing result. Native synthetic log/rollback tests also pass. Do not rerun this
+completed operation or treat its success as approval to import real residents.
+
 This is an operator handoff, not a record of completed deployment. Administrator sign-in, synthetic initialization, reader setup, campaign creation/reload, import use and event/building-run assignment save/reload are confirmed. Migrations 003–007 are applied; restricted-runtime checks passed. The owner confirmed the live named-link/download/visit/sync/results happy path on 2026-09-15, with a new Unit 10B visit received at 5:12:48 PM EDT. Two cumulative visits include an earlier Unit 2A record. Disconnected-browser, physical-phone and remaining lifecycle checks are still required. Historical procedures below are not instructions to rerun completed updates. Resident data remains prohibited until the entire [acceptance gate](ACCEPTANCE.md) passes.
 
 ## Retention update 013 — applied and read verified

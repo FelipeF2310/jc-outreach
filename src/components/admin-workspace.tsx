@@ -8,11 +8,13 @@ import { CampaignRetention } from "./retention-status";
 
 export function AdminWorkspace({
   administratorId,
+  live = false,
   campaigns,
   onCreated,
   onFinalized,
 }: {
   administratorId: string;
+  live?: boolean;
   campaigns: HostedCampaign[];
   onCreated: (campaign: HostedCampaign) => void;
   onFinalized: (campaignId: string, receipt: ImportReceipt) => void;
@@ -28,6 +30,7 @@ export function AdminWorkspace({
   }, [key]);
   const current =
     campaigns.find((c) => c.id === selected) ??
+    campaigns.find((c) => c.dataKind === "live" && c.importReceipt) ??
     campaigns.find((c) => c.importReceipt) ??
     campaigns[0];
   function select(id: string) {
@@ -66,13 +69,16 @@ export function AdminWorkspace({
             <div>
               <h2>Start your outreach campaign</h2>
               <p>
-                No active synthetic campaigns. Create a practice campaign below.
+                {live
+                  ? "No active campaigns. Create a campaign below."
+                  : "No active synthetic campaigns. Create a practice campaign below."}
               </p>
             </div>
           )}
         </div>
         <CampaignCreate
           administratorId={administratorId}
+          live={live}
           initiallyOpen={campaigns.length === 0}
           onCreated={(campaign) => {
             select(campaign.id);
@@ -131,11 +137,13 @@ export function AdminWorkspace({
               campaignId={c.id}
               receipt={c.importReceipt}
               ready={c.importReady === true}
+              live={c.dataKind === "live"}
               onFinalized={(receipt) => onFinalized(c.id, receipt)}
             />
           </section>
           {c.importReceipt ? (
             <CampaignAssignments
+              live={c.dataKind === "live"}
               campaignId={c.id}
               administratorId={administratorId}
               deletionAt={c.deletionAt}

@@ -1,0 +1,61 @@
+# Approved CSV intake status
+
+Latest implementation (2026-09-18): the owner explicitly requested the actual saved campaign, not another practice record. [Controlled local preload](LIVE-PRELOAD.md) now connects the prepared engine to a provider-verified administrator, restricted runtime role, exact private source digest and one campaign/import/event/ten-pair transaction. New migration 015 grants the bounded finalizer and introduces explicit live mode; installation alone does not activate it. The raw CSV does not traverse Vercel. Browser upload remains disabled pending its own ingress review. No hosted migration/import is claimed by this local checkpoint.
+
+Local source preparation checkpoint (2026-09-18): the owner approved preparing a separate Ward A candidate with unresolved whole households held aside, ten paired-volunteer turf drafts and both volunteer-name fields blank. These private files now exist and are verified; **nothing has been uploaded or created in the live administrator workspace**. This supersedes the earlier pending subset decision and does not open any ingress or real-data gate.
+
+Current implementation checkpoint (2026-09-18): the general CSV transport/service and narrow database finalizer are implemented and locally tested, beyond the existing fixed-fixture importer. **They are not exposed by an HTTP route or enabled in the upload UI. Migration 014 is not applied to Supabase and grants no runtime execution permission.** No real file was read, prepared or imported in this continuation. Source approval, remaining hosting review and deliberate launch activation are still required.
+
+Infrastructure checkpoint: the database logging finding is remediated with supported role-scoped controls. Owner-run verification and an independent read-only audit pass all 13 controls; existing data and permissions are preserved. See [upload-safety evidence](UPLOAD-SAFETY.md). Provider body/temp retention remains unverified. The prepared transport enforces 4 MiB rather than exposing the parser's larger 5 MiB allowance.
+
+The owner requested support for the actual source artifact and authorized local inspection on 2026-09-17. No resident data was uploaded or stored in the application, and the original file remains unchanged. Source-specific counts and logical record numbers are in an ignored private report; no real examples belong in fixtures or this public repository.
+
+## Implemented compatibility
+
+The source uses `Rationale` for the non-persisted column documented as `Match Rationale`. The validator accepts that exact alias before checking column uniqueness. Both spellings together, missing columns and unrelated unknown headers reject. The alias does not add a persisted field. Raw bytes remain the digest input, so header/content changes still require a fresh preview and confirmation.
+
+Synthetic tests cover successful validation/finalization and discarded-field exclusion, duplicate alias/canonical columns, and whole-file rejection with zero committed rows for Tier 3, blank and malformed tiers. Existing ZIP, unit, grouping, immutable-import and rollback checks remain intact.
+
+## Source preparation
+
+The inspected source cannot be imported unchanged. A separate owner-approved Tier 1/2 artifact is needed, with reviewed ZIP formatting, internally consistent household counts and resolved household/unit grouping. The application must continue rejecting a mixed or malformed population as a whole; it must not silently discard disallowed rows during finalization.
+
+The owner selected a structurally valid subset with entire unresolved households held for review. The private candidate restores the reviewed leading zero to four-digit ZIPs, recalculates household counts, canonicalizes the discarded rationale header, and blanks unnecessary age/owner/matching fields while preserving the recognized 21-column import schema. No units, identifiers or household splits were guessed, and no other source was joined. The exact saved candidate passes the application validator; its totals, source/output hashes and held-record references are in the ignored private manifest. Structural validation does not prove address accuracy or geographic proximity.
+
+The ten draft turfs partition Block/Lot/address-ordered whole buildings without overlap; lot numbers alone are not treated as proximity evidence. Door targets are limited by the actual included households, not padded to the requested capacity. The separate roster leaves both volunteer names blank. Saved CSV round-trip checks preserve text identifiers and ZIPs; every household appears once and every building stays with one pair. These are static, organizer-review drafts, not optimized routes or saved application assignments.
+
+The owner selected a 30-day campaign starting September 18: proposed end October 18, 2026 at 23:59:59 America/New_York, identifying-data deletion November 17 at the same local time. The daylight-saving transition is accounted for. A field Event end time is separate and still needs confirmation before credentials are issued. The campaign is not yet created. Files remain private local external copies, outside server deletion, and must be deleted separately under the campaign policy.
+
+## Hosted path still required
+
+The existing hosted endpoint accepts only built-in synthetic case identifiers. The new local practice-file picker does not enable a raw-file endpoint or real-data mode.
+
+### General intake engine — locally verified, not activated
+
+`admin-csv-intake.ts` is an unregistered adapter behind the existing origin/provider/allowlist boundary. Its server-owned ingress gate defaults closed before body reading. A client cannot enable it or choose the audit actor. Accepted transport is plain UTF-8 `text/csv`, no multipart filename, compression, base64 or retained object-storage upload. `readCsvBody` checks declared and actual streamed size against 4 MiB, never writes a file and sanitizes stream errors.
+
+`importCsvBytes` reparses exact source bytes on every preview/finalization. It retains the existing schema/Tier/grouping checks and 13-field persistence projection. Only permitted fields reach the database. Preview returns complete totals but at most 100 household groups and 256 KiB of serialized household data; `previewTruncated` explicitly identifies a sample. An individually oversized group is omitted, never partially presented as a complete household. Invalid populations return no names or household sample. Finalization requires explicit confirmation and the matching source digest.
+
+Additive migration `014_csv_import.sql` independently validates the minimized rows and grouping, recomputes counts, serializes campaign finalization against the legacy function and writes all records atomically. Source digest, minimized-payload digest and verified actor bind immutable retries. Concurrent identical requests produce one receipt; changed content/actor conflicts. Existing populated campaigns cannot be replaced. The runtime still has no direct resident-table writes. PUBLIC/provider/runtime execution is explicitly revoked until a separate reviewed activation. Applied migrations 002–013 are unchanged.
+
+Verification: strict TypeScript, 104 unit/service tests, 18 isolated native PostgreSQL tests and formatting pass. The new native scenario includes a generated **1,200-person / 1,000-door / 200-building** CSV, bounded preview, an invalid final Tier row rejecting the entire file, CSV quoting/Unicode, leading zeros, discarded-field absence, concurrent retries, changed content/actor rejection, late-row rollback, expiry and denied direct writes. Imported doors continue through event creation, manually ordered assignment, minimal volunteer download and repeat-safe visit submission. Separate adapter tests verify authentication/gate checks happen before body reads and the verified identity is the only audit actor. This is local database/service evidence, not a browser/phone upload test or hosted migration. Existing app processes, deployments and real records are untouched.
+
+### Practice file selection — local implementation
+
+In an unimported campaign, choose **Import synthetic households → Import source → Choose a practice CSV file**. Download a valid example or either labeled rejection example and select it unchanged. Recognition occurs in browser memory against the shared exact fixture bytes. Non-CSV, empty, oversized (64 KiB practice limit), changed or unknown files reject locally; filenames and bytes never enter requests or browser persistence. This bound is for fixed practice fixtures, not the existing validator's future 5 MiB source-file contract. Even a structurally valid variation is deliberately not an approved practice file.
+
+The browser sends only the matched case ID to the existing authenticated endpoint. The server independently regenerates and validates the fixture, and the existing narrow finalizer remains the only persistence path. Recognizing a Tier 3 or conflicting-unit test file is not accepting it for import: server validation rejects it before approval/finalization. Changed selections clear preview and approval; delayed file reads cannot overwrite a newer selection. Unknown finalization results freeze source changes and permit identical retry. Reload clears local selection/preview, while a committed campaign receipt is restored normally.
+
+This is a testable interaction step, not completed arbitrary CSV upload support. No actual resident artifact was read, prepared or imported during this work. No database migration, stage change, production privilege or deployment is added.
+
+Verification (2026-09-17 EDT): production build, strict TypeScript, all 91 unit/service tests, 16 isolated native PostgreSQL tests and all 66 Chromium/WebKit browser checks pass. The valid fixture digest still matches immutable migration 004. New checks cover exact downloaded bytes, rejection without transmission, approval reset, same-source lost-ack retry, receipt reload, no browser source persistence, late/cancelled reads and sanitized failures. Existing end-to-end import/assignment/offline/sync checks remain passing. Phone-width/desktop overflow checks pass at 320/390/1280px; the final synthetic WebKit screenshot was inspected. Tests use a separate temporary build and synthetic transport/databases, not hosted file uploads or the owner's browser session. Initial runs caught an explicit-label issue and over-broad test alert selectors; both were corrected, with no skipped tests. The actual running local/hosted apps remain unchanged until separately published/restarted.
+
+### Remaining real-file path
+
+1. The owner confirms hosted administrator sign-in/campaign reload. Finish session/recovery/abuse checks and verify provider/app handling of request bodies, logs and temporary storage before opening raw-file ingress.
+2. Connect the prepared bounded intake adapter and approved-file selection/preview/confirmation UI after ingress review. Revalidate the same bytes and digest at finalization; never keep raw uploads or put resident drafts in administrator browser storage. Preserve selection after ambiguous results for same-source retry; expose preview sampling honestly.
+3. Add the reviewed operator activation/capability check for locally tested migration 014 and narrowly grant its finalizer when ready. Do not grant general resident-table writes or arbitrary SQL. No owner action or migration is requested by this checkpoint.
+4. Enable real-data operation deliberately across application and database stage guards after readiness review. Do not insert residents while claiming the database is synthetic. Keep the existing synthetic workflow available for its separate test context.
+5. Verify the connected browser/hosted import-to-assignment-to-offline-save-to-sync path with synthetic files. Local core/adapter/native tests now cover the import/assignment/sync connection, mixed tiers, changed-after-preview bytes, retries, unauthorized/expired campaigns and transactional rollback; they do not replace browser, hosted or physical-phone evidence. Close backup/recovery, logging and remaining launch checks before real resident use.
+
+These are remaining implementation and launch tasks, not claims that the current deployment accepts the CSV.

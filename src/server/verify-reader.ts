@@ -38,6 +38,8 @@ export async function verifyReader(db: Database) {
         WHERE n.nspname = 'outreach' AND has_function_privilege(current_user,p.oid,'EXECUTE')
         AND (NOT coalesce((
             (p.oid = to_regprocedure('outreach.create_synthetic_campaign(uuid,text,date,uuid)') AND owner_role.rolname = 'jco_campaign_executor')
+            OR (p.oid = to_regprocedure('outreach.create_live_campaign(uuid,text,date,uuid)') AND owner_role.rolname = 'jco_campaign_executor')
+            OR (p.oid = to_regprocedure('outreach.finalize_csv_import(uuid,text,jsonb,uuid)') AND owner_role.rolname = 'jco_import_executor')
             OR (p.oid IN (to_regprocedure('outreach.finalize_synthetic_import(uuid,text,uuid)'), to_regprocedure('outreach.synthetic_import_status()')) AND owner_role.rolname = 'jco_import_executor')
             OR (p.oid IN (to_regprocedure('outreach.assignment_workspace(uuid)'), to_regprocedure('outreach.create_outreach_event(uuid,uuid,text,date,uuid)'), to_regprocedure('outreach.prepare_assignment(uuid,uuid,uuid,text,text,uuid[],uuid)')) AND owner_role.rolname = 'jco_assignment_executor')
             OR (p.oid IN (to_regprocedure('outreach.download_field_assignment(text)'), to_regprocedure('outreach.submit_field_operation(text,jsonb)')) AND owner_role.rolname='jco_field_executor')

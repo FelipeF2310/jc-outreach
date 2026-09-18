@@ -2,6 +2,7 @@ import type { Database, SqlConnection } from "./db-contract";
 import { z } from "zod";
 import { DomainError } from "../lib/contracts";
 import type { ImportReceipt } from "../lib/import-contracts";
+import { isHostedStage } from "./hosted-stage";
 
 const campaignRequest = z.strictObject({
   id: z.uuid(),
@@ -21,12 +22,13 @@ export async function requireHostedReader(tx: SqlConnection) {
     "SELECT stage, current_user AS role FROM outreach.deployment WHERE singleton = true",
   );
   if (
-    marker.rows[0]?.stage !== "synthetic-preview" ||
+    !isHostedStage(marker.rows[0]?.stage) ||
     marker.rows[0]?.role !== "jco_admin_reader"
   )
     throw new Error(
       "Database stage or runtime role does not match the reviewed configuration.",
     );
+  return marker.rows[0].stage;
 }
 
 export async function createHostedCampaign(
@@ -36,20 +38,19 @@ export async function createHostedCampaign(
 ) {
   const parsed = campaignRequest.safeParse(input);
   if (!parsed.success || !z.uuid().safeParse(administratorId).success)
-    throw new DomainError(
-      400,
-      "Enter a synthetic campaign name and a valid end date.",
-    );
+    throw new DomainError(400, "Enter a campaign name and a valid end date.");
   try {
     return await db.transaction(async (tx) => {
-      await requireHostedReader(tx);
+      const stage = await requireHostedReader(tx);
       const { rows } = await tx.query<{
         id: string;
         name: string;
         end_at: Date;
         deletion_at: Date;
       }>(
-        "SELECT * FROM outreach.create_synthetic_campaign($1::uuid,$2::text,$3::date,$4::uuid)",
+        stage === "outreach-live"
+          ? "SELECT * FROM outreach.create_live_campaign($1::uuid,$2::text,$3::date,$4::uuid)"
+          : "SELECT * FROM outreach.create_synthetic_campaign($1::uuid,$2::text,$3::date,$4::uuid)",
         [
           parsed.data.id,
           parsed.data.name,
@@ -64,6 +65,10 @@ export async function createHostedCampaign(
         name: row.name,
         endAt: row.end_at.toISOString(),
         deletionAt: row.deletion_at.toISOString(),
+        dataKind:
+          stage === "outreach-live"
+            ? ("live" as const)
+            : ("synthetic" as const),
       };
     });
   } catch (error) {
@@ -107,8 +112,9 @@ export async function listHostedCampaigns(db: Database) {
       end_at: Date | null;
       deletion_at: Date;
       import_receipt: ImportReceipt | null;
+      data_kind: "synthetic" | "live";
     }>(
-      `SELECT c.id,c.name,(to_jsonb(c)->>'end_at')::timestamptz AS end_at,c.deletion_at, ${importReady ? "i.receipt" : "NULL::jsonb"} AS import_receipt
+      `SELECT c.id,c.name,(to_jsonb(c)->>'end_at')::timestamptz AS end_at,c.deletion_at,coalesce(to_jsonb(c)->>'data_kind','synthetic') AS data_kind, ${importReady ? "i.receipt" : "NULL::jsonb"} AS import_receipt
        FROM outreach.campaigns c ${importReady ? "LEFT JOIN outreach.synthetic_import_status() i ON i.campaign_id=c.id" : ""}
        WHERE c.deletion_at > now() ORDER BY c.deletion_at,c.id LIMIT 100`,
     );
@@ -117,6 +123,7 @@ export async function listHostedCampaigns(db: Database) {
       name: row.name,
       endAt: row.end_at?.toISOString() ?? null,
       deletionAt: row.deletion_at.toISOString(),
+      dataKind: row.data_kind,
       importReceipt: row.import_receipt ?? null,
       importReady,
       assignmentsReady: ready.rows[0]?.assignments_ready === true,

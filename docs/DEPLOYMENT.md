@@ -1,6 +1,16 @@
 # HTTPS synthetic phone-test deployment
 
-## Current configuration handoff
+## Deployed checkpoint — 2026-09-17 EDT
+
+The synthetic site is live at **https://jc-outreach-test.vercel.app/admin**. PR #2 passed CI run `35297956157` and merged at `0a6eb25e6974c0eaaa79791cba7a4c1513d19d7e`. Authenticated Vercel metadata reports deployment `dpl_CiCeZUronf2K837PcqTGWqHHZKbU` READY, target Production, for that exact commit. The existing application stage remains `synthetic-preview`. No database initialization/migration, resident upload or billing change occurred.
+
+Unauthenticated HTTPS checks passed: `/admin` and `/field` 200, `/api/app-version` 200 with no-store, `/sw.js` JavaScript with no-cache, `/api/admin/session` 401 with the required administrator header but no cookie, `/api/assignment` 401 without a bearer, and `/api/demo` 503. Responses retained no-referrer, nosniff and frame denial; no provider login/interstitial redirected these requests.
+
+A fresh unauthenticated Chromium context at 390×844 confirmed the sign-in form, non-interactive field branding that stays on `/field` after a click, field/API release-marker agreement, no horizontal overflow and zero page errors. This automated check did not sign in or create/read campaign records. In the resumed session the owner confirmed hosted administrator sign-in and existing campaign reload, followed by the synthetic offline-save/browser-close-reopen/sync/administrator-receipt test on both phones. These are owner-reported results; exact device/browser versions and context were not captured. Session/logout/recovery, the broader phone failure/update matrix, provider body/log handling and real-data readiness remain open. Public unauthenticated HTTPS checks were also repeated successfully without mutations.
+
+All seven runtime variables were independently verified Production-only before publication. The prior configuration record below preserves that evidence; its empty-deployment and local-only-logo statements describe the earlier checkpoint and are superseded here.
+
+## Historical configuration handoff
 
 Verified scope correction (2026-09-17 EDT; recorded 2026-09-18 01:59 UTC): the authenticated Vercel API confirms `jc-outreach-test` under `felipefurtado314-6006s-projects`, connected to `FelipeF2310/jc-outreach`, production branch `main`, Node 24.x. Exactly seven runtime variables exist and all are now Production-only. Owner-reported build settings remain `npm ci`, `npm run build`, repository root and default Next.js output; assigned domain is `https://jc-outreach-test.vercel.app`. The deployment list is empty.
 

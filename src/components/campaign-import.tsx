@@ -1,20 +1,26 @@
 "use client";
 import { useState } from "react";
 import type { ImportPreview, ImportReceipt } from "@/lib/import-contracts";
+import { practiceCsvExamples } from "@/lib/synthetic-csv";
+import { PracticeCsvPicker } from "./practice-csv-picker";
 
 export function CampaignImport({
   campaignId,
   receipt: savedReceipt,
   ready,
+  live = false,
   onFinalized,
 }: {
   campaignId: string;
   receipt?: ImportReceipt | null;
   ready: boolean;
+  live?: boolean;
   onFinalized: (receipt: ImportReceipt) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [caseId, setCaseId] = useState("valid-couple-and-buildings");
+  const [source, setSource] = useState("example");
+  const [fileCase, setFileCase] = useState<string>();
   const [preview, setPreview] = useState<ImportPreview>();
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -22,7 +28,14 @@ export function CampaignImport({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const saved = receipt ?? savedReceipt;
+  const selectedCase = source === "file" ? fileCase : caseId;
+  function resetPreview() {
+    setPreview(undefined);
+    setConfirmed(false);
+    setError("");
+  }
   async function run(action: "preview" | "finalize") {
+    if (busy || !selectedCase || (action === "preview" && pending)) return;
     if (
       action === "finalize" &&
       (!confirmed || !preview?.valid || !preview.digest)
@@ -43,7 +56,7 @@ export function CampaignImport({
         body: JSON.stringify({
           action,
           campaignId,
-          caseId,
+          caseId: selectedCase,
           ...(action === "finalize"
             ? { digest: preview!.digest, confirmed: true }
             : {}),
@@ -87,9 +100,18 @@ export function CampaignImport({
           </p>
           <p className="fine">
             Your household list is saved. Continue to volunteer assignments
-            below. This finalized synthetic source cannot be replaced.
+            below.{" "}
+            {live
+              ? "This finalized source cannot be replaced."
+              : "This finalized synthetic source cannot be replaced."}
           </p>
         </>
+      ) : live ? (
+        <p className="notice">
+          No households have been imported. Approved source files are loaded
+          through the website owner's reviewed import process. Browser CSV
+          uploads are not enabled yet.
+        </p>
       ) : (
         <>
           <button disabled={!ready} onClick={() => setOpen((value) => !value)}>
@@ -105,41 +127,65 @@ export function CampaignImport({
             <>
               <h3>Preview households before importing</h3>
               <p className="fine">
-                Built-in practice examples only. Real-file uploads remain
-                disabled. The two error examples deliberately demonstrate
-                rejection.
+                Synthetic practice only. Real resident CSV uploads remain
+                disabled. Preview the households, then approve before saving.
               </p>
-              <details className="testing-tools">
-                <summary>Testing tools — choose a CSV example</summary>
-                <label className="import-label">
-                  Synthetic CSV example
-                  <select
-                    value={caseId}
-                    disabled={busy || pending}
-                    onChange={(event) => {
-                      setCaseId(event.target.value);
-                      setPreview(undefined);
-                      setConfirmed(false);
-                      setError("");
-                    }}
-                  >
-                    <option value="valid-couple-and-buildings">
-                      Valid example — 4 people, 3 doors
-                    </option>
-                    <option value="tier-three">
-                      Error example — disallowed Tier 3
-                    </option>
-                    <option value="conflicting-unit">
-                      Error example — conflicting units
-                    </option>
-                  </select>
-                </label>
-              </details>
+              <label className="import-label">
+                Import source
+                <select
+                  aria-label="Import source"
+                  value={source}
+                  disabled={busy || pending}
+                  onChange={(event) => {
+                    setSource(event.target.value);
+                    setFileCase(undefined);
+                    resetPreview();
+                  }}
+                >
+                  <option value="example">Use a built-in example</option>
+                  <option value="file">Choose a practice CSV file</option>
+                </select>
+              </label>
+              {source === "file" ? (
+                <PracticeCsvPicker
+                  selectedCase={fileCase}
+                  locked={busy || pending}
+                  onSelection={(value) => {
+                    setFileCase(value);
+                    resetPreview();
+                  }}
+                />
+              ) : (
+                <details className="testing-tools">
+                  <summary>Testing tools — choose a CSV example</summary>
+                  <label className="import-label">
+                    Synthetic CSV example
+                    <select
+                      value={caseId}
+                      disabled={busy || pending}
+                      onChange={(event) => {
+                        setCaseId(event.target.value);
+                        resetPreview();
+                      }}
+                    >
+                      {practiceCsvExamples.map(({ id, label }) => (
+                        <option key={id} value={id}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </details>
+              )}
               <button
-                disabled={busy || pending}
+                disabled={busy || pending || !selectedCase}
                 onClick={() => void run("preview")}
               >
-                Validate example
+                {busy
+                  ? "Working…"
+                  : source === "file"
+                    ? "Validate practice CSV"
+                    : "Validate example"}
               </button>
               {preview &&
                 (preview.valid && preview.counts ? (

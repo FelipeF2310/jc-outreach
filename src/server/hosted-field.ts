@@ -18,6 +18,7 @@ import {
 import type { Database, SqlConnection } from "./db-contract";
 import { hashToken, practicePrograms } from "./service";
 import { requireHostedReader } from "./hosted-campaigns";
+import { outreachPrograms } from "./program-reference";
 
 async function bounded<T>(
   db: Database,
@@ -96,7 +97,9 @@ export async function downloadHostedAssignment(
       ...rows[0].assignment,
       eventEndsAt: new Date(rows[0].assignment.eventEndsAt).toISOString(),
       deletionAt: new Date(rows[0].assignment.deletionAt).toISOString(),
-      programs: practicePrograms(),
+      programs: rows[0].assignment.synthetic
+        ? practicePrograms()
+        : outreachPrograms(),
       ...(capability.rows[0]?.ready ? { completionReady: true } : {}),
     };
   });

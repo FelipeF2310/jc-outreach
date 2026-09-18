@@ -15,12 +15,15 @@ import {
 import { hostedDatabase, postgresOptions } from "../../src/server/postgres";
 import { createAdministratorCampaign } from "../../src/server/admin-campaigns";
 import { importAdministratorExample } from "../../src/server/admin-imports";
+import { importAdministratorCsv } from "../../src/server/admin-csv-intake";
 import { prepareAdministratorAssignment } from "../../src/server/admin-assignments";
 import { manageAdministratorField } from "../../src/server/admin-field";
 import { manageAdministratorHelp } from "../../src/server/admin-help";
 import { manageAdministratorCorrection } from "../../src/server/admin-corrections";
 import { readAdministratorRetention } from "../../src/server/admin-retention";
 import type { Database } from "../../src/server/db-contract";
+import { rehearsalCsv } from "../../src/lib/synthetic-csv";
+import { validateImport } from "../../src/server/import-validation";
 
 const config: AdminConfig = {
   origin: "https://outreach.example.test",
@@ -245,6 +248,124 @@ test("synthetic import endpoints authorize before reading input or opening a dat
     }
   }
   assert.equal(opened, 0);
+});
+
+test("prepared CSV handler rejects unauthorized or unapproved ingress before reading source bytes", async () => {
+  let opened = 0;
+  const database = (): Database => {
+    opened++;
+    throw Error("Database must not open");
+  };
+  for (const [req, fake, status] of [
+    [request("SYNTHETIC_SOURCE"), provider(), 401],
+    [
+      request("SYNTHETIC_SOURCE", cookie()),
+      provider({ email: "unapproved@example.test" }),
+      403,
+    ],
+    [request("SYNTHETIC_SOURCE", cookie()), provider(), 503],
+  ] as const) {
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) => importAdministratorCsv(req, ctx, cfg, { database }),
+      { config, fetcher: fake.fetcher },
+    );
+    assert.equal(response.status, status);
+    assert.equal(req.bodyUsed, false);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+    assert.equal((await response.text()).includes("SYNTHETIC_SOURCE"), false);
+  }
+  const cross = new NextRequest(`${config.origin}/api/admin/test`, {
+    method: "POST",
+    body: "SYNTHETIC_SOURCE",
+    headers: {
+      Origin: "https://untrusted.example.test",
+      "X-JCO-Admin": "1",
+      Cookie: cookie(),
+    },
+  });
+  const response = await adminEndpoint(
+    cross,
+    (ctx, cfg) =>
+      importAdministratorCsv(cross, ctx, cfg, {
+        database,
+        ingressApproved: async () => true,
+      }),
+    { config, fetcher: provider().fetcher },
+  );
+  assert.equal(response.status, 403);
+  assert.equal(cross.bodyUsed, false);
+  assert.equal(opened, 0);
+});
+
+test("approved in-memory CSV adapter uses verified identity, exact bytes and no-store responses", async () => {
+  const bytes = rehearsalCsv("valid-couple-and-buildings");
+  const digest = validateImport(bytes).preview.digest!;
+  const campaignId = "00000000-0000-4000-8000-000000000010";
+  let writes = 0;
+  const db: Database = {
+    async transaction(work) {
+      return work(db);
+    },
+    async exec() {
+      throw Error("Unexpected statement");
+    },
+    async query<T>(sql: string, parameters?: unknown[]) {
+      if (sql.includes("AS allowed"))
+        return { rows: [{ allowed: true }] as T[] };
+      writes++;
+      assert.equal(parameters![0], campaignId);
+      assert.equal(parameters![1], digest);
+      assert.equal(parameters![3], user.id);
+      return {
+        rows: [
+          {
+            receipt: {
+              campaignId,
+              importId: user.id,
+              finalizedAt: new Date().toISOString(),
+              counts: { people: 4, households: 3, buildings: 2 },
+            },
+          },
+        ] as T[],
+      };
+    },
+  };
+  for (const action of ["preview", "finalize"]) {
+    const req = new NextRequest(`${config.origin}/api/admin/test`, {
+      method: "POST",
+      body: bytes,
+      headers: {
+        Origin: config.origin,
+        Cookie: cookie(),
+        "X-JCO-Admin": "1",
+        "Content-Type": "text/csv",
+        "X-JCO-Import-Action": action,
+        "X-JCO-Campaign": campaignId,
+        "X-JCO-Source-Digest": digest,
+        "X-JCO-Import-Confirmed": "true",
+        "X-JCO-Actor": "untrusted-client-actor",
+      },
+    });
+    const response = await adminEndpoint(
+      req,
+      (ctx, cfg) =>
+        importAdministratorCsv(req, ctx, cfg, {
+          database: () => db,
+          ingressApproved: async () => true,
+        }),
+      { config, fetcher: provider().fetcher },
+    );
+    assert.equal(response.status, 200);
+    assert.equal(req.bodyUsed, true);
+    assert.match(response.headers.get("cache-control")!, /no-store/);
+    assert.ok(
+      action === "preview"
+        ? (await response.json()).preview.valid
+        : (await response.json()).receipt,
+    );
+  }
+  assert.equal(writes, 1);
 });
 
 test("assignment preparation authenticates before opening a database", async () => {

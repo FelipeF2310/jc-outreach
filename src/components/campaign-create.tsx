@@ -11,6 +11,7 @@ export type HostedCampaign = {
   importReady?: boolean;
   assignmentsReady?: boolean;
   fieldReady?: boolean;
+  dataKind?: "synthetic" | "live";
 };
 type Save = { id: string; name: string; endDate: string };
 
@@ -18,10 +19,12 @@ export function CampaignCreate({
   administratorId,
   onCreated,
   initiallyOpen = false,
+  live = false,
 }: {
   administratorId: string;
   onCreated: (campaign: HostedCampaign) => void;
   initiallyOpen?: boolean;
+  live?: boolean;
 }) {
   const [name, setName] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -109,16 +112,20 @@ export function CampaignCreate({
     }
   }
   return (
-    <section className="campaign-create" aria-label="Create synthetic campaign">
+    <section
+      className="campaign-create"
+      aria-label={live ? "Create campaign" : "Create synthetic campaign"}
+    >
       <details
         open={open}
         onToggle={(event) => setOpen(event.currentTarget.open)}
       >
         <summary>Create a campaign</summary>
-        <h2>Create synthetic campaign</h2>
+        <h2>{live ? "Create campaign" : "Create synthetic campaign"}</h2>
         <p className="fine">
-          Use a practice label only—no resident names or addresses. This does
-          not import households.
+          {live
+            ? "Name the outreach effort and choose its end date. This creates an empty campaign; it does not import households."
+            : "Use a practice label only—no resident names or addresses. This does not import households."}
         </p>
         <form
           onSubmit={(event) => {
@@ -148,8 +155,8 @@ export function CampaignCreate({
           </label>
           <p className="fine">
             Ends at 11:59:59 PM on this date in America/New_York. The database
-            schedules deletion 30 calendar days later. Automatic deletion is not
-            connected yet.
+            schedules deletion 30 calendar days later. Check the retention
+            status panel to confirm the deletion worker is running.
           </p>
           {pending && (
             <p role="status">

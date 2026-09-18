@@ -1,4 +1,4 @@
-/** Exact approved source schema; values in ignored columns must never persist. */
+/** Canonical source schema; the discarded rationale column also accepts "Rationale". */
 export const sourceHeaders = [
   "VANID",
   "Last Name",

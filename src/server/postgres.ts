@@ -1,6 +1,7 @@
 import { Pool, type PoolConfig } from "pg";
 import { DomainError } from "../lib/contracts";
 import type { Database, SqlConnection } from "./db-contract";
+import { isHostedStage } from "./hosted-stage";
 
 export function postgresOptions(
   connectionString: string,
@@ -69,7 +70,7 @@ const globalPool = globalThis as typeof globalThis & { jcoHostedPool?: Pool };
 export function hostedDatabase(): Database {
   if (
     process.env.JCO_SYNTHETIC_ONLY === "1" ||
-    process.env.JCO_HOSTED_STAGE !== "synthetic-preview" ||
+    !isHostedStage(process.env.JCO_HOSTED_STAGE) ||
     !process.env.DATABASE_URL
   ) {
     throw new DomainError(
