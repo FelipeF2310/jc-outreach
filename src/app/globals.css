@@ -159,6 +159,23 @@
   max-width: 480px;
   margin: 18px 0;
 }
+.practice-csv-picker {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.practice-csv-select {
+  margin: 18px 0;
+}
+.practice-csv-download {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.practice-csv-picker .error {
+  margin-top: 16px;
+}
 .import-preview,
 .finalized-import {
   margin-top: 24px;

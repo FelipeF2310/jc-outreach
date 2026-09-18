@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. The synthetic site is now deployed to the stable Vercel HTTPS origin; public/fresh-browser checks passed, while sign-in/database reload from Vercel and physical-phone acceptance remain pending. Real CSV upload is disabled. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
+Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. The synthetic site is deployed to the stable Vercel HTTPS origin; public/fresh-browser checks passed, and the owner now confirms hosted sign-in/campaign reload and basic offline-save/reopen/sync/admin receipt on both phones. Remaining session/recovery and physical-phone failure/update checks are separate gates. Real CSV upload is disabled; the new local practice-file picker forwards only known example IDs. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection
 
@@ -29,6 +29,12 @@ Same-assignment refresh replaces downloaded household data, not the outbox. Prog
 The owner has created a Supabase project and administrator accounts; live app authentication and database connectivity still require verification. Do not assume free-plan suitability, backup guarantees, email delivery, or production log behavior. Commit the actual dependency lockfile.
 
 ## Browser/server boundary
+
+### Practice CSV picker — local follow-up
+
+The file picker recognizes exact shared synthetic fixture bytes locally (64 KiB maximum before reading) and forwards only a case ID through the unchanged authenticated import endpoint. Filename, bytes and arbitrary row data are not uploaded or persisted by the picker. The backend independently regenerates/validates its fixture; fixed SQL bytes/digest, narrow function grants and all stage checks remain unchanged. This is not the production raw-file path. File changes invalidate preview/approval, asynchronous reads are generation-guarded, and ambiguous finalization freezes source selection until receipt/retry. Existing design tokens and disclosure/confirmation patterns are retained; there is no volunteer/offline-schema change.
+
+Hosted sign-in/campaign reload and basic offline save/reopen/sync/admin receipt on both phones are now owner-reported passing. This does not establish phone release-transition/failure scenarios or provider payload handling; older pending statements are historical for only those confirmed happy paths.
 
 ### Campaign retention worker — installed and automatically running 2026-09-17
 

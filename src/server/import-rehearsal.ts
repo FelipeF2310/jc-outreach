@@ -1,10 +1,9 @@
 import type { Database } from "./db-contract";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import fixture from "../../tests/fixtures/outreach.json";
-import cases from "../../tests/fixtures/import-cases.json";
 import { DomainError } from "../lib/contracts";
 import { issueCredential } from "./service";
+export { rehearsalCsv } from "../lib/synthetic-csv";
 
 export const rehearsalRequest = z.discriminatedUnion("action", [
   z.strictObject({ action: z.literal("create"), campaignId: z.uuid() }),
@@ -21,30 +20,6 @@ export const rehearsalRequest = z.discriminatedUnion("action", [
   }),
   z.strictObject({ action: z.literal("assignment"), campaignId: z.uuid() }),
 ]);
-/** Build trusted, explicitly synthetic CSV bytes IN MEMORY. Never accept uploaded rows here. */
-export function rehearsalCsv(caseId: string) {
-  const example = cases.cases.find((c) => c.id === caseId);
-  if (!example) throw new DomainError(400, "Unknown synthetic example.");
-  const rows: Record<string, string>[] = structuredClone(fixture.records);
-  for (const change of example.changes) {
-    if ("sourceRow" in change)
-      Object.assign(rows[change.sourceRow], change.set);
-    if ("appendCopyOf" in change) rows.push({ ...rows[change.appendCopyOf] });
-    if ("deleteFieldFromAll" in change)
-      for (const row of rows) delete row[change.deleteFieldFromAll];
-    if ("setFieldOnAll" in change)
-      for (const row of rows)
-        row[change.setFieldOnAll.key] = change.setFieldOnAll.value;
-  }
-  const headers = Object.keys(rows[0]);
-  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
-  return new TextEncoder().encode(
-    [
-      headers.map(quote).join(","),
-      ...rows.map((row) => headers.map((h) => quote(row[h])).join(",")),
-    ].join("\r\n"),
-  );
-}
 export async function createRehearsal(db: Database, campaignId: string) {
   return db.transaction(async (tx) => {
     const existing = await tx.query<{ end_at: Date; deletion_at: Date }>(

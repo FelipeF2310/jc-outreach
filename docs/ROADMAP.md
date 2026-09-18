@@ -4,6 +4,8 @@ Agreed with the owner on 2026-09-15. Keep this roadmap current as work proceeds;
 
 ## Current position
 
+Current continuation (2026-09-17 EDT): hosted administrator sign-in/campaign reload and the basic synthetic offline-save/close-reopen/sync/admin-result test on both phones are now owner-confirmed. Exact device/browser inventory and the broader failure/update checks remain open. The next local slice adds practice-file selection and download, preview, approval and retry using only exact supplied synthetic fixtures. Selected bytes/names never leave the browser; the server still accepts built-in case IDs only. No real-file ingress, migration or deployment is included. See CSV-INTAKE.md for the remaining raw-intake, approved-source and launch gates. Older pending basic-phone/sign-in checkpoints below are historical.
+
 Latest checkpoint (2026-09-17 EDT): the first main-branch synthetic HTTPS deployment is READY at `https://jc-outreach-test.vercel.app/admin`, commit `0a6eb25` from CI-passing PR #2. Public and fresh-browser smoke checks passed, including the logo fix. Next: owner sign-in/reload on this origin, then physical-phone checks. Earlier statements below that no deployment exists are historical. No real records have been loaded.
 
 The owner requested support for the actual approved-source CSV and authorized local inspection. Source preparation and household review are needed; the subset decision is pending. The local parser now accepts the observed discarded rationale-header alias with strict duplicate-header and Tier rejection. Hosted real-file intake is still to implement after its access and infrastructure checks; possession/inspection of the source is not approval to load it. See [CSV intake status](CSV-INTAKE.md).

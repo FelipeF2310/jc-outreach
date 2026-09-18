@@ -84,6 +84,8 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Physical-phone session record
 
+Owner-reported hosted check (2026-09-17 EDT): existing campaigns appear after administrator sign-in/reload at `https://jc-outreach-test.vercel.app/admin`. The owner reports the basic synthetic no-answer/offline save/browser close-reopen/sync/administrator receipt walkthrough passed on both phones. This provides basic S03/happy-path evidence, not the whole session below: exact model, OS/browser version, build marker and browser versus home-screen context were not captured. Do not infer successful phone revision, lost-acknowledgment, partial/rejected sync, mixed-record or release-update checks from this confirmation.
+
 The user has two phones. Record exact models, OS versions, browser versions, build/commit, HTTPS origin, and browser versus home-screen context when testing. Do not fill these with assumed values.
 
 For each phone: download; enable airplane mode; reopen; save a no-answer visit and a help request without a number; close/reopen; confirm recovery; restore connectivity; sync; inspect server receipts; retry; test update with pending work. Also test a synthetic blocked building and partial/rejected upload. Desktop browser emulation is additional evidence, not a substitute for these sessions.
