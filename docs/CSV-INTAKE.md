@@ -1,5 +1,7 @@
 # Approved CSV intake status
 
+Local source preparation checkpoint (2026-09-18): the owner approved preparing a separate Ward A candidate with unresolved whole households held aside, ten paired-volunteer turf drafts and both volunteer-name fields blank. These private files now exist and are verified; **nothing has been uploaded or created in the live administrator workspace**. This supersedes the earlier pending subset decision and does not open any ingress or real-data gate.
+
 Current implementation checkpoint (2026-09-18): the general CSV transport/service and narrow database finalizer are implemented and locally tested, beyond the existing fixed-fixture importer. **They are not exposed by an HTTP route or enabled in the upload UI. Migration 014 is not applied to Supabase and grants no runtime execution permission.** No real file was read, prepared or imported in this continuation. Source approval, remaining hosting review and deliberate launch activation are still required.
 
 Infrastructure checkpoint: the database logging finding is remediated with supported role-scoped controls. Owner-run verification and an independent read-only audit pass all 13 controls; existing data and permissions are preserved. See [upload-safety evidence](UPLOAD-SAFETY.md). Provider body/temp retention remains unverified. The prepared transport enforces 4 MiB rather than exposing the parser's larger 5 MiB allowance.
@@ -16,7 +18,11 @@ Synthetic tests cover successful validation/finalization and discarded-field exc
 
 The inspected source cannot be imported unchanged. A separate owner-approved Tier 1/2 artifact is needed, with reviewed ZIP formatting, internally consistent household counts and resolved household/unit grouping. The application must continue rejecting a mixed or malformed population as a whole; it must not silently discard disallowed rows during finalization.
 
-The owner is deciding between a structurally valid subset with entire unresolved households held for review and a corrected complete Tier 1/2 artifact. Preparation may normalize explicitly reviewed formatting and recalculate counts, but must not guess units, split conflicting households, change identifiers or enrich from another source. Validate the exact final artifact again and show its final people/door/building totals for approval. Structural validation does not prove source provenance or address accuracy.
+The owner selected a structurally valid subset with entire unresolved households held for review. The private candidate restores the reviewed leading zero to four-digit ZIPs, recalculates household counts, canonicalizes the discarded rationale header, and blanks unnecessary age/owner/matching fields while preserving the recognized 21-column import schema. No units, identifiers or household splits were guessed, and no other source was joined. The exact saved candidate passes the application validator; its totals, source/output hashes and held-record references are in the ignored private manifest. Structural validation does not prove address accuracy or geographic proximity.
+
+The ten draft turfs partition Block/Lot/address-ordered whole buildings without overlap; lot numbers alone are not treated as proximity evidence. Door targets are limited by the actual included households, not padded to the requested capacity. The separate roster leaves both volunteer names blank. Saved CSV round-trip checks preserve text identifiers and ZIPs; every household appears once and every building stays with one pair. These are static, organizer-review drafts, not optimized routes or saved application assignments.
+
+The owner selected a 30-day campaign starting September 18: proposed end October 18, 2026 at 23:59:59 America/New_York, identifying-data deletion November 17 at the same local time. The daylight-saving transition is accounted for. A field Event end time is separate and still needs confirmation before credentials are issued. The campaign is not yet created. Files remain private local external copies, outside server deletion, and must be deleted separately under the campaign policy.
 
 ## Hosted path still required
 
