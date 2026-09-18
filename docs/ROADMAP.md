@@ -8,7 +8,7 @@ Administrator sign-in, restricted Supabase access, campaign creation/reload, syn
 
 ## Next milestone
 
-Current owner-reported hosting state: `jc-outreach-test` is created with main/Node 24.x and domain `jc-outreach-test.vercel.app`; no deployment yet. Complete the four remaining Production-only runtime values using the private local copy helper, then coordinate publication of the verified logo fix and the first synthetic deployment. Do not push/merge while configuration is incomplete, because Git integration can start builds automatically. Configuration save, real HTTPS operation and both physical phones remain distinct verification steps.
+Current verified hosting state (2026-09-17 EDT): `jc-outreach-test` tracks main/Node 24.x; all seven runtime entries are now Production-only after four authorized scope-only API updates. No values were resubmitted, and the deployment list remains empty. The assigned domain is `jc-outreach-test.vercel.app`. The scope correction is complete; next coordinate publication of the verified logo fix and the first synthetic deployment, remembering that Git integration can start builds automatically. Remote metadata verification does not establish HTTPS authentication/database operation or either physical-phone acceptance. See DEPLOYMENT.md for evidence.
 
 Update: the tested app is now merged into `main` at `871ef78` through owner-approved PR #1 after passing CI. Resume Vercel import from `main` under the corrected team slug `felipefurtado314-6006s-projects`; GitHub permissions did not need changing. The volunteer-logo navigation correction is locally verified on `fix/volunteer-header` and still needs publication before it reaches the hosted build. Existing app/session data remains untouched.
 

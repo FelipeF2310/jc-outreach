@@ -12,6 +12,8 @@ Recovery follow-up: an actual local synthetic archive restore now passes expiry,
 
 ## Established requirements
 
+Hosting configuration checkpoint (2026-09-17 EDT): the authorized Vercel scope correction is verified. All seven runtime variables are Production-only; secret types are preserved and no values were resubmitted. No deployment exists yet. See [deployment evidence and next checks](docs/DEPLOYMENT.md).
+
 Local follow-up: the volunteer header logo is now non-interactive branding, not an organizer-workspace link. Its appearance is unchanged. Regression coverage verifies that tapping it preserves the field page and pending work. This fix is on `fix/volunteer-header`, not yet published or deployed; the existing running local app has not been restarted.
 
 - Approximately 10 concurrent volunteers; 938 household doors containing 1,157 listed people across 605 buildings.
