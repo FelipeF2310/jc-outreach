@@ -8,6 +8,8 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 
 ## Import and authorization
 
+Local evidence update (2026-09-18): the new general CSV engine and unregistered administrator adapter pass authorization-before-body, streamed-size, bounded-preview, source-digest, minimization, direct database validation, retry/conflict, expiry and rollback tests. Native PostgreSQL also passes a 1,200-person import → selected assignment → minimal download → repeat-safe visit submission. These are synthetic local checks, not a hosted upload or browser test. Migration 014 is unapplied/ungranted and real ingress remains closed; no production checkbox is closed by this result. Details: [CSV-INTAKE.md](CSV-INTAKE.md).
+
 - [ ] I01: Two distinct people with one validated household key and unit create one door.
 - [ ] I02: Missing, unknown, malformed, or Tier 3 input rejects the entire import without committing resident rows.
 - [ ] I03: Conflicting units/addresses are reported without silently guessing a grouping.

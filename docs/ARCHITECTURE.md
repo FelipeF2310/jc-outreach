@@ -4,6 +4,12 @@ Status: synthetic field/import and organizer-operation slices implemented; hoste
 
 ## Stack selection
 
+### General CSV intake boundary — prepared, not activated (2026-09-18)
+
+The general intake service is independent of the immutable fixed-fixture function. An unregistered administrator adapter verifies identity before body consumption and defaults its server-owned ingress approval closed. The future route must use `adminEndpoint` for same-origin/no-store behavior. CSV bytes are streamed in memory with a 4 MiB cap; no multipart filename or stored raw upload is used. Preview samples at most 100 groups / 256 KiB of serialized household data and reports truncation without changing complete import totals. Finalization reparses the exact bytes and requires explicit confirmation and matching SHA-256 digest.
+
+Migration 014 adds a minimized-payload digest and a bounded `finalize_csv_import` function owned by the existing non-login import executor. Tier/schema/string/grouping checks run before writes; database-computed counts are checked against the parser result. It uses the legacy campaign advisory-lock key to prevent competing import paths, an immutable source/payload/actor binding, and one transaction for receipt/buildings/households/people/source projections. No general runtime resident access is introduced. It preserves the synthetic stage guard, revokes execution from runtime/provider roles and remains unapplied to Supabase. Activation and real-data stage changes need separate reviewed operations, not a frontend switch. Applied migrations are unchanged. See [intake evidence and remaining work](CSV-INTAKE.md).
+
 Latest addition (2026-09-15): household reassignment migration 010 is applied; independent restricted-runtime checks and the owner-reported live handoff/reload walkthrough passed. Compatible app-update detection now addresses stale running tabs. Earlier status notes below are historical.
 
 ### Reassignment boundary

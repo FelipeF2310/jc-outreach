@@ -1,8 +1,12 @@
 # Preparation and implementation status
 
-Updated: 2026-09-17.
+Updated: 2026-09-18.
 
 ## Current objective
+
+General CSV backend checkpoint (2026-09-18): `csv-intake.ts`, the unregistered administrator adapter and additive migration 014 now implement 4 MiB streamed intake, bounded in-memory preview, exact-source revalidation/confirmation, minimized rows, independent database validation, campaign locking, atomic saving and actor/content-bound retry receipts. 104 unit/service tests, 18 native PostgreSQL tests, strict TypeScript and formatting pass. The native test uses 1,200 synthetic people / 1,000 doors / 200 buildings and verifies selected assignment, minimal volunteer download and repeat-safe visit sync. It also covers prohibited final rows, direct invalid function calls, late-save rollback, expiry, leading zeros and privilege denial. Preview response bytes are bounded even for pathological long-name household groups. Migration 014 is **unapplied and grants no runtime capability**; no raw-upload route/UI, production stage, deployment or real-source preparation was enabled. Existing local app was not restarted, and no new browser/phone upload evidence is claimed. Next: remaining provider ingress review, deliberate route/UI/capability activation and synthetic hosted/browser verification, then approved source and other launch gates. See [CSV-INTAKE.md](CSV-INTAKE.md).
+
+Historical checkpoints below retain their original evidence; the current paragraph above supersedes earlier statements that this general engine is still unimplemented.
 
 Logging remediation completed: the owner-run update at 2026-09-18T03:31:34.472Z passed all 13 controls, retained restricted permissions, recycled one idle connection and left zero old sessions. Independent read-only verification at 03:34:59.604Z also passed. Supabase supports the role-scoped controls; unavailable verbosity is addressed by suppressing routine error text for the application account, not by ignoring the finding. 98 unit/service and 17 native PostgreSQL checks pass, including actual local log canaries, atomic rollback and stale-session detection. No campaign data, passwords, grants, other roles or schedules changed; no migration or deployment occurred. Provider-wide body/temp/telemetry checks and real-file implementation remain. See [UPLOAD-SAFETY.md](UPLOAD-SAFETY.md).
 

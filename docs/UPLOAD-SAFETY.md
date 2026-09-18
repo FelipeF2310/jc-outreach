@@ -119,8 +119,12 @@ as automatically safe.
   telemetry initializer was found in this review. This is not a provider guarantee.
 - Read-only Vercel API inventory for the intended project returned zero applicable
   drains from both current drain and legacy log-drain endpoints. Project metadata
-  contained web-analytics and speed-insights objects whose enabled state was not
-  resolved; omitted observability fields are unknown, not proof of disablement.
+  contained web-analytics and speed-insights objects. Follow-up checked nested
+  metadata: no enable/disable/cancel timestamp was present and `hasData` was false
+  for both. Object presence alone is not enablement, and missing timestamps do not
+  prove every instrumentation boundary is disabled. Omitted observability fields
+  remain unknown. This was read-only; no raw logs, values or account settings were
+  changed or exposed.
 - The restricted Supabase connection passed the read-only/synthetic-stage scope
   check. No outreach function-local logging overrides were found. No resident
   rows, raw logs, passwords or connection strings were printed or inspected.
@@ -182,14 +186,17 @@ endpoint, deployment operation or import toggle.
    and log-retention behavior. Public documentation and an empty drain list do not
    prove that provider-controlled internal systems never retain payloads. Resolve
    unknown instrumentation settings or seek provider confirmation where necessary.
-3. Resolve a transport-size mismatch before real ingress: the existing parser
-   allows 5 MiB, while Vercel Functions document a 4.5 MB request **and response**
-   limit. Proposed raw HTTP body limit: 4 MiB, checked before/during reading on the
-   server and before transmission in the UI. Bound preview responses too; account
-   for any encoding/envelope overhead. This is a design recommendation, not an
-   implemented limit. Do not introduce retained object-storage uploads to bypass it.
-4. Complete the narrow transactional finalizer, approved source preparation,
-   authentication/recovery, backup and remaining launch evidence described in
+3. The prepared internal transport now enforces 4 MiB declared/streamed raw body
+   size and bounds serialized household preview data to 256 KiB plus its small
+   fixed metadata. The existing parser's separate 5 MiB limit is not the HTTP
+   allowance; Vercel documents 4.5 MB request **and response** limits. Tests cover
+   actual overflow, dishonest Content-Length, failed cancellation and oversized
+   household previews. No HTTP route/UI is connected yet; client preflight and
+   hosted transport verification remain. Do not introduce retained object-storage
+   uploads to bypass the limit.
+4. The narrow transactional finalizer passes local native tests and remains
+   unapplied/ungranted. Finish its deliberate activation, approved source
+   preparation, authentication/recovery, backup and remaining launch evidence in
    [CSV intake](CSV-INTAKE.md). Passing this audit alone cannot authorize real data.
 
 ## Initial review verification and scope — historical

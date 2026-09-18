@@ -36,6 +36,10 @@ import { hostedImport } from "../../src/server/hosted-imports";
 import { createHostedCampaign } from "../../src/server/hosted-campaigns";
 import { ownerPreflight } from "../../src/server/owner-preflight";
 import { configureRuntimeLogging } from "../../src/server/runtime-logging";
+import { importCsvBytes } from "../../src/server/csv-intake";
+import { sourceHeaders } from "../../src/lib/import-contracts";
+import importFixture from "../fixtures/outreach.json";
+import { migrate } from "../../src/server/migrate";
 import { inspectUploadLogging } from "../../src/server/upload-safety";
 import { finalizeImport } from "../../src/server/import-service";
 import {
@@ -3921,4 +3925,382 @@ test("role-scoped logging protection removes synthetic payloads from actual serv
     staleClient.release();
     await Promise.all([stale.end(), fresh.end()]);
   }
+});
+
+test("general CSV engine validates at the database boundary, saves atomically and preserves immutable actor-bound retries", async () => {
+  const owner = postgresDatabase(pool),
+    runtime = postgresDatabase(reader);
+  await owner.transaction((tx) =>
+    migrate({ ...tx, transaction: (work) => work(tx) }, ["014_csv_import.sql"]),
+  );
+  await owner.transaction((tx) =>
+    migrate({ ...tx, transaction: (work) => work(tx) }, ["014_csv_import.sql"]),
+  );
+  for (const role of [
+    "public",
+    "anon",
+    "authenticated",
+    "service_role",
+    "jco_admin_reader",
+  ])
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_function_privilege($1,'outreach.finalize_csv_import(uuid,text,jsonb,uuid)','EXECUTE') AS allowed",
+          [role],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  // A test-only grant in this disposable cluster. The migration deliberately
+  // provides no hosted runtime authorization or raw-upload route.
+  await pool.query(
+    "GRANT EXECUTE ON FUNCTION outreach.finalize_csv_import(uuid,text,jsonb,uuid) TO jco_admin_reader",
+  );
+  const actor = randomUUID();
+  const newCampaign = async () =>
+    await createHostedCampaign(
+      runtime,
+      { id: randomUUID(), name: "CSV engine fixture", endDate: "2030-12-01" },
+      actor,
+    );
+  const csv = rehearsalCsv("valid-couple-and-buildings");
+  const parsed = validateImport(csv);
+  const previewRequest = (id: string) => ({
+    action: "preview",
+    campaignId: id,
+  });
+  const finalizeRequest = (id: string) => ({
+    action: "finalize",
+    campaignId: id,
+    digest: parsed.preview.digest,
+    confirmed: true,
+  });
+  const count = async (id: string) =>
+    (
+      await pool.query(
+        `SELECT
+    (SELECT count(*)::integer FROM outreach.imports WHERE campaign_id=$1) AS imports,
+    (SELECT count(*)::integer FROM outreach.households WHERE campaign_id=$1) AS households,
+    (SELECT count(*)::integer FROM outreach.import_people WHERE campaign_id=$1) AS people`,
+        [id],
+      )
+    ).rows[0];
+  const empty = { imports: 0, households: 0, people: 0 };
+  try {
+    const campaign = await newCampaign();
+    const preview = await importCsvBytes(
+      runtime,
+      previewRequest(campaign.id),
+      csv,
+      actor,
+    );
+    assert.ok("preview" in preview && preview.preview.valid);
+    assert.deepEqual(await count(campaign.id), empty);
+    const malformed: unknown[] = [
+      null,
+      {},
+      [],
+      [null],
+      parsed.rows.map((r, i) => (i ? r : { ...r, Tier: "3" })),
+      parsed.rows.map((r, i) => (i ? r : { ...r, Tier: "" })),
+      parsed.rows.map((r, i) => (i ? r : { ...r, Score: "999" })),
+      [...parsed.rows, parsed.rows[0]],
+      parsed.rows.map((r, i) =>
+        i !== 1 ? r : { ...r, "Unit (verified)": "3C" },
+      ),
+      parsed.rows.map((r, i) => (i ? r : { ...r, Zip: "7304" })),
+      parsed.rows.map((r, i) => (i ? r : { ...r, "First Name": null })),
+    ];
+    for (const rows of malformed) {
+      await assert.rejects(
+        reader.query(
+          "SELECT outreach.finalize_csv_import($1,$2,$3::jsonb,$4)",
+          [campaign.id, parsed.preview.digest, JSON.stringify(rows), actor],
+        ),
+        { code: "JC002" },
+      );
+      assert.deepEqual(await count(campaign.id), empty);
+    }
+    const saved = await Promise.all([
+      importCsvBytes(runtime, finalizeRequest(campaign.id), csv, actor),
+      importCsvBytes(runtime, finalizeRequest(campaign.id), csv, actor),
+    ]);
+    assert.deepEqual(saved[0], saved[1]);
+    assert.deepEqual(await count(campaign.id), {
+      imports: 1,
+      households: 3,
+      people: 4,
+    });
+    assert.equal(
+      (await listHostedCampaigns(runtime)).find((c) => c.id === campaign.id)
+        ?.importReceipt?.counts.people,
+      4,
+    );
+    await assert.rejects(
+      importCsvBytes(runtime, finalizeRequest(campaign.id), csv, randomUUID()),
+      (error) => error instanceof DomainError && error.status === 409,
+    );
+    const changed = structuredClone(parsed.rows);
+    changed[0]["First Name"] = "Changed Fixture";
+    await assert.rejects(
+      reader.query("SELECT outreach.finalize_csv_import($1,$2,$3::jsonb,$4)", [
+        campaign.id,
+        parsed.preview.digest,
+        JSON.stringify(changed),
+        actor,
+      ]),
+      { code: "JC003" },
+    );
+    assert.deepEqual(await count(campaign.id), {
+      imports: 1,
+      households: 3,
+      people: 4,
+    });
+    const failing = await newCampaign();
+    await pool.query(`CREATE FUNCTION public.jco_csv_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.source_id='00000004' THEN RAISE EXCEPTION 'SYNTHETIC_PRIVATE_FAILURE'; END IF; RETURN NEW; END $$;
+      CREATE TRIGGER jco_csv_failure BEFORE INSERT ON outreach.import_people FOR EACH ROW EXECUTE FUNCTION public.jco_csv_failure()`);
+    try {
+      await assert.rejects(
+        importCsvBytes(runtime, finalizeRequest(failing.id), csv, actor),
+        (error) =>
+          error instanceof DomainError &&
+          error.status === 503 &&
+          !error.message.includes("SYNTHETIC_PRIVATE_FAILURE"),
+      );
+      assert.deepEqual(
+        await count(failing.id),
+        empty,
+        "a late row failure rolls back the receipt and all earlier rows",
+      );
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT count(*)::integer AS count FROM outreach.buildings WHERE campaign_id=$1",
+            [failing.id],
+          )
+        ).rows[0].count,
+        0,
+      );
+    } finally {
+      await pool.query(
+        "DROP TRIGGER jco_csv_failure ON outreach.import_people; DROP FUNCTION public.jco_csv_failure()",
+      );
+    }
+    await importCsvBytes(runtime, finalizeRequest(failing.id), csv, actor);
+    assert.deepEqual(await count(failing.id), {
+      imports: 1,
+      households: 3,
+      people: 4,
+    });
+    const expired = await newCampaign();
+    await pool.query(
+      "UPDATE outreach.campaigns SET end_at=now()-interval '32 days',deletion_at=((now()-interval '32 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+      [expired.id],
+    );
+    await assert.rejects(
+      importCsvBytes(runtime, previewRequest(expired.id), csv, actor),
+      (error) => error instanceof DomainError && error.status === 404,
+    );
+    await assert.rejects(
+      reader.query("SELECT outreach.finalize_csv_import($1,$2,$3::jsonb,$4)", [
+        expired.id,
+        parsed.preview.digest,
+        JSON.stringify(parsed.rows),
+        actor,
+      ]),
+      { code: "JC001" },
+    );
+    await assert.rejects(
+      reader.query(
+        "INSERT INTO outreach.people(id,household_id,first_name,last_name) VALUES(gen_random_uuid(),gen_random_uuid(),'Bypass','Fixture')",
+      ),
+      { code: "42501" },
+    );
+
+    // Generated synthetic source, not a renamed built-in fixture: 1,200 people,
+    // 1,000 doors, 200 buildings. Includes couples, leading zeros and CSV quoting.
+    const largeRows: Record<string, string>[] = [];
+    for (let door = 0; door < 1000; door++) {
+      const building = Math.floor(door / 5);
+      const address = `${100 + building} SYNTHETIC CSV WALK`;
+      const unit = String((door % 5) + 1).padStart(2, "0");
+      const block = String(10000 + building);
+      const members = door < 200 ? 2 : 1;
+      for (let member = 0; member < members; member++)
+        largeRows.push({
+          ...importFixture.records[0],
+          VANID: String(largeRows.length + 10000).padStart(8, "0"),
+          "First Name": `Synthetic ${door}-${member}`,
+          "Last Name": 'Fixture, "García"',
+          "Residence Address": `${address} Unit ${unit}`,
+          "Property Location": address,
+          "Unit (verified)": unit,
+          Zip: "07304",
+          Ward: "ABCDEF"[building % 6],
+          Block: block,
+          Lot: "001",
+          Qual: `C${unit}`,
+          "Household Key": `${block}-001-C${unit}`,
+          "Persons in Household": String(members),
+          Tier: member ? "2" : "1",
+          "Owner of Record": "DISCARDED_SYNTHETIC_CANARY",
+          "Match Rationale": "DISCARDED_SYNTHETIC_CANARY",
+          Score: "DISCARDED_SYNTHETIC_CANARY",
+        });
+    }
+    const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const encode = (rows: Record<string, string>[]) =>
+      new TextEncoder().encode(
+        "\ufeff" +
+          [
+            sourceHeaders.map(quote).join(","),
+            ...rows.map((row) =>
+              sourceHeaders.map((h) => quote(row[h])).join(","),
+            ),
+          ].join("\r\n"),
+      );
+    const largeCsv = encode(largeRows);
+    const large = await newCampaign();
+    const largePreview = await importCsvBytes(
+      runtime,
+      previewRequest(large.id),
+      largeCsv,
+      actor,
+    );
+    assert.ok("preview" in largePreview && largePreview.preview.valid);
+    assert.deepEqual(largePreview.preview.counts, {
+      people: 1200,
+      households: 1000,
+      buildings: 200,
+    });
+    assert.equal(largePreview.preview.households.length, 100);
+    assert.equal(largePreview.preview.previewTruncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(largePreview)) < 100_000);
+    assert.deepEqual(await count(large.id), empty);
+    const largeFinalize = {
+      ...finalizeRequest(large.id),
+      digest: largePreview.preview.digest,
+    };
+    const forbidden = structuredClone(largeRows);
+    forbidden[1199].Tier = "3";
+    const rejected = await importCsvBytes(
+      runtime,
+      previewRequest(large.id),
+      encode(forbidden),
+      actor,
+    );
+    assert.ok(
+      "preview" in rejected &&
+        !rejected.preview.valid &&
+        rejected.preview.households.length === 0,
+    );
+    await assert.rejects(
+      importCsvBytes(runtime, largeFinalize, encode(forbidden), actor),
+      (error) => error instanceof DomainError && error.status === 422,
+    );
+    assert.deepEqual(await count(large.id), empty);
+    await importCsvBytes(runtime, largeFinalize, largeCsv, actor);
+    assert.deepEqual(await count(large.id), {
+      imports: 1,
+      households: 1000,
+      people: 1200,
+    });
+    const stored = await pool.query(
+      "SELECT to_jsonb(p) AS row FROM outreach.import_people p WHERE campaign_id=$1 ORDER BY source_id",
+      [large.id],
+    );
+    assert.equal(stored.rows[0].row.source_id, "00010000");
+    assert.equal(stored.rows[0].row.zip, "07304");
+    assert.equal(stored.rows[0].row.verified_unit, "01");
+    assert.doesNotMatch(
+      JSON.stringify(stored.rows),
+      /DISCARDED_SYNTHETIC_CANARY/,
+    );
+
+    const event = await assignmentAdmin(
+      runtime,
+      {
+        action: "event",
+        campaignId: large.id,
+        id: randomUUID(),
+        name: "General CSV field loop",
+        endDate: "2030-11-20",
+      },
+      actor,
+    );
+    assert.equal(event.workspace.households.length, 1000);
+    const couple = event.workspace.households.find((h) => h.peopleCount === 2)!;
+    const other = event.workspace.households.find(
+      (h) => h.buildingId !== couple.buildingId,
+    )!;
+    const aid = randomUUID();
+    await assignmentAdmin(
+      runtime,
+      {
+        action: "assignment",
+        campaignId: large.id,
+        eventId: event.savedId,
+        id: aid,
+        name: "CSV volunteer",
+        kind: "scattered",
+        householdIds: [other.id, couple.id],
+      },
+      actor,
+    );
+    const issued = await hostedFieldAdmin(
+      runtime,
+      { action: "issue", assignmentId: aid, id: randomUUID() },
+      actor,
+    );
+    const assignment = await downloadHostedAssignment(runtime, issued.token!);
+    assert.deepEqual(
+      assignment.households.map((h) => h.id),
+      [other.id, couple.id],
+    );
+    assert.equal(assignment.households[1].people.length, 2);
+    assert.equal(
+      assignment.households[1].people[0].lastName,
+      'Fixture, "García"',
+    );
+    assert.doesNotMatch(
+      JSON.stringify(assignment),
+      /VANID|source_id|Tier|Owner|Rationale|Score|DISCARDED_SYNTHETIC_CANARY/,
+    );
+    const op: VisitOperation = {
+      id: randomUUID(),
+      visitId: randomUUID(),
+      assignmentId: aid,
+      householdId: couple.id,
+      createdAt: new Date().toISOString(),
+      schemaVersion: 1,
+      kind: "visit",
+      result: "resident",
+      programs: ["freeze"],
+      help: null,
+      corrections: [],
+      doNotContact: false,
+    };
+    const receipt = await submitHostedOperation(runtime, issued.token!, op);
+    assert.deepEqual(
+      await submitHostedOperation(runtime, issued.token!, op),
+      receipt,
+    );
+    const received = await hostedFieldAdmin(
+      runtime,
+      { action: "status", assignmentId: aid },
+      actor,
+    );
+    assert.deepEqual(received.snapshot.counts, {
+      attempts: 1,
+      repeats: 0,
+      conversations: 1,
+    });
+  } finally {
+    await pool.query(
+      "REVOKE EXECUTE ON FUNCTION outreach.finalize_csv_import(uuid,text,jsonb,uuid) FROM jco_admin_reader",
+    );
+  }
+  await verifyReader(runtime);
 });
