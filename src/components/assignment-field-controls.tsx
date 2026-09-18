@@ -210,9 +210,8 @@ export function AssignmentFieldControls({
                 onChange={(e) => setLabel(e.target.value)}
               />
               <small>
-                For example, “Practice Volunteer A — Saturday”. This is an
-                organizer label, not a verified identity. Use practice names
-                only in this preview.
+                For example, “Pair 01 — Saturday”. This is an organizer label,
+                not a verified identity.
               </small>
             </label>
           )}

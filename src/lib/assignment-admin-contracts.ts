@@ -56,6 +56,7 @@ export type AssignmentWorkspace = {
   deletionAt: string;
   households: {
     id: string;
+    sourceKey?: string | null;
     buildingId: string;
     address: string;
     unit: string;

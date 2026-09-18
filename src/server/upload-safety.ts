@@ -81,18 +81,18 @@ export async function inspectUploadLogging(db: Database) {
     await tx.exec("SET TRANSACTION READ ONLY");
     const scope = await tx.query<{
       restricted: boolean;
-      synthetic: boolean;
+      reviewed: boolean;
       read_only: boolean;
     }>(
       `SELECT current_user='jco_admin_reader' AS restricted,
-        stage='synthetic-preview' AS synthetic,
+        stage IN ('synthetic-preview','outreach-live') AS reviewed,
         current_setting('transaction_read_only')='on' AS read_only
        FROM outreach.deployment WHERE singleton`,
     );
     const verified = scope.rows[0];
-    if (!verified?.restricted || !verified.synthetic || !verified.read_only)
+    if (!verified?.restricted || !verified.reviewed || !verified.read_only)
       throw new Error(
-        "Upload audit requires the restricted synthetic read-only connection.",
+        "Upload audit requires the restricted reviewed read-only connection.",
       );
     const settings = await tx.query<{ name: string; setting: string | null }>(
       "SELECT name,setting FROM pg_settings WHERE name=ANY($1::text[]) ORDER BY name",

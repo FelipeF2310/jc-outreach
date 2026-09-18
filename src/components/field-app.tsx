@@ -326,7 +326,9 @@ export function FieldApp() {
                     ? selected.unit
                       ? `Unit ${selected.unit}`
                       : "Household"
-                    : "Your practice walk"}
+                    : assignment.synthetic
+                      ? "Your practice walk"
+                      : "Your assignment"}
               </h1>
               <p className="muted">
                 {selected
@@ -392,14 +394,19 @@ export function FieldApp() {
                   ← Back to assignment
                 </button>
                 <p className="notice">
-                  Practice content — not approved for resident outreach. Program
-                  rules must be reviewed before launch.
+                  {assignment.synthetic
+                    ? "Practice content — not approved for resident outreach. Program rules must be reviewed before launch."
+                    : "Informational outreach only. The State determines eligibility; this app and your volunteer do not. Refer to the official program source for current instructions."}
                 </p>
                 {assignment.programs.map((p) => (
                   <section className="panel program" key={p.id}>
                     <h2>{p.name}</h2>
                     <p>{p.summary}</p>
-                    <small>Review status: not yet reviewed</small>
+                    <small>
+                      {p.reviewedAt
+                        ? `Source reviewed: ${p.reviewedAt}`
+                        : "Review status: not yet reviewed"}
+                    </small>
                     <a href={p.url} target="_blank" rel="noreferrer">
                       {p.source} ↗
                     </a>

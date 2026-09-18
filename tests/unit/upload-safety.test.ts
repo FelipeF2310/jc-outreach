@@ -114,7 +114,7 @@ test("audit is read-only, scoped before settings access, and checks function ove
       queries.push(sql);
       let rows: unknown[];
       if (sql.includes("outreach.deployment"))
-        rows = [{ restricted: allowed, synthetic: true, read_only: true }];
+        rows = [{ restricted: allowed, reviewed: true, read_only: true }];
       else if (sql.includes("pg_settings")) {
         assert.deepEqual(params, [[...uploadLoggingSettings]]);
         rows = safe;
@@ -128,7 +128,7 @@ test("audit is read-only, scoped before settings access, and checks function ove
   assert.equal((await inspectUploadLogging(db)).loggingBaselinePassed, false);
   allowed = false;
   const before = queries.length;
-  await assert.rejects(inspectUploadLogging(db), /restricted synthetic/);
+  await assert.rejects(inspectUploadLogging(db), /restricted reviewed/);
   assert.equal(queries.length - before, 2);
   assert.ok(
     queries.every(

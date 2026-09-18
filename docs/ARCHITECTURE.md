@@ -1,5 +1,7 @@
 # Engineering foundation
 
+Latest addition (2026-09-18): [controlled live preload](LIVE-PRELOAD.md) introduces explicit `outreach-live` stage and campaign data kind through additive migration 015. Installation and activation are separate; deploy the backward-compatible UI/API before switching the database. One local operator workflow verifies admin identity, runtime logging/permissions and recent scheduled retention, then imports through the restricted role in an atomic package. No HTTP raw CSV route is registered; existing practice data remains classified synthetic. Earlier synthetic-only descriptions are historical where superseded.
+
 Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. The synthetic site is deployed to the stable Vercel HTTPS origin; public/fresh-browser checks passed, and the owner now confirms hosted sign-in/campaign reload and basic offline-save/reopen/sync/admin receipt on both phones. Remaining session/recovery and physical-phone failure/update checks are separate gates. Real CSV upload is disabled; the new local practice-file picker forwards only known example IDs. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection

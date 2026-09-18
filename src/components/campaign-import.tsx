@@ -8,11 +8,13 @@ export function CampaignImport({
   campaignId,
   receipt: savedReceipt,
   ready,
+  live = false,
   onFinalized,
 }: {
   campaignId: string;
   receipt?: ImportReceipt | null;
   ready: boolean;
+  live?: boolean;
   onFinalized: (receipt: ImportReceipt) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -98,9 +100,18 @@ export function CampaignImport({
           </p>
           <p className="fine">
             Your household list is saved. Continue to volunteer assignments
-            below. This finalized synthetic source cannot be replaced.
+            below.{" "}
+            {live
+              ? "This finalized source cannot be replaced."
+              : "This finalized synthetic source cannot be replaced."}
           </p>
         </>
+      ) : live ? (
+        <p className="notice">
+          No households have been imported. Approved source files are loaded
+          through the website owner's reviewed import process. Browser CSV
+          uploads are not enabled yet.
+        </p>
       ) : (
         <>
           <button disabled={!ready} onClick={() => setOpen((value) => !value)}>

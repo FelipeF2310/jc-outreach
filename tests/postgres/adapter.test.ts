@@ -37,6 +37,8 @@ import { createHostedCampaign } from "../../src/server/hosted-campaigns";
 import { ownerPreflight } from "../../src/server/owner-preflight";
 import { configureRuntimeLogging } from "../../src/server/runtime-logging";
 import { importCsvBytes } from "../../src/server/csv-intake";
+import { migrateLive } from "../../src/server/migrate-live";
+import { preloadLiveCampaign } from "../../src/server/live-preload";
 import { sourceHeaders } from "../../src/lib/import-contracts";
 import importFixture from "../fixtures/outreach.json";
 import { migrate } from "../../src/server/migrate";
@@ -4302,5 +4304,288 @@ test("general CSV engine validates at the database boundary, saves atomically an
       "REVOKE EXECUTE ON FUNCTION outreach.finalize_csv_import(uuid,text,jsonb,uuid) FROM jco_admin_reader",
     );
   }
+  await verifyReader(runtime);
+});
+
+test("live activation preserves practice data and atomic paired preload survives retries, field sync and retention", async () => {
+  const owner = postgresDatabase(pool),
+    runtime = postgresDatabase(reader);
+  const before = (
+    await pool.query(
+      "SELECT id,name,end_at,deletion_at FROM outreach.campaigns ORDER BY id",
+    )
+  ).rows;
+  await migrateLive(owner);
+  await migrateLive(owner);
+  assert.equal(
+    (await pool.query("SELECT stage FROM outreach.deployment")).rows[0].stage,
+    "synthetic-preview",
+  );
+  assert.deepEqual(
+    (
+      await pool.query(
+        "SELECT id,name,end_at,deletion_at FROM outreach.campaigns ORDER BY id",
+      )
+    ).rows,
+    before,
+  );
+  await verifyReader(runtime);
+  await assert.rejects(
+    reader.query("SELECT * FROM outreach.create_live_campaign($1,$2,$3,$4)", [
+      randomUUID(),
+      "Synthetic test of live mode",
+      "2030-10-18",
+      randomUUID(),
+    ]),
+    { code: "JC004" },
+  );
+  for (const role of ["public", "anon", "authenticated", "service_role"])
+    for (const signature of [
+      "outreach.create_live_campaign(uuid,text,date,uuid)",
+      "outreach.finalize_csv_import(uuid,text,jsonb,uuid)",
+    ])
+      assert.equal(
+        (
+          await pool.query(
+            "SELECT has_function_privilege($1,$2,'EXECUTE') AS ok",
+            [role, signature],
+          )
+        ).rows[0].ok,
+        false,
+      );
+
+  const rows = Array.from({ length: 100 }, (_, index) => ({
+    ...importFixture.records[0],
+    VANID: String(800000 + index),
+    "First Name": `Fixture ${index}`,
+    "Last Name": "Synthetic",
+    Tier: "1",
+    Ward: "A",
+    Block: String(3000 + index),
+    Lot: "1",
+    Qual: "",
+    "Household Key": `${3000 + index}-1-`,
+    "Residence Address": `${index + 100} SYNTHETIC PRELOAD WALK`,
+    "Property Location": `${index + 100} SYNTHETIC PRELOAD WALK`,
+    "Unit (verified)": "",
+    "Persons in Household": "1",
+    Zip: "07304",
+  }));
+  const quote = (s: string) => `"${s.replaceAll('"', '""')}"`;
+  const bytes = Buffer.from(
+    [
+      sourceHeaders.map(quote).join(","),
+      ...rows.map((r) =>
+        sourceHeaders.map((h) => quote(String(r[h]))).join(","),
+      ),
+    ].join("\r\n"),
+  );
+  const validated = validateImport(bytes);
+  assert.equal(validated.preview.valid, true);
+  const actor = randomUUID();
+  const plan = {
+    campaign: {
+      id: randomUUID(),
+      name: "Ward A LIVE-MODE SYNTHETIC TEST",
+      endDate: "2030-10-18",
+    },
+    event: {
+      id: randomUUID(),
+      name: "Paired field event",
+      endDate: "2030-10-18",
+    },
+    sourceDigest: validated.preview.digest,
+    pairs: Array.from({ length: 10 }, (_, i) => ({
+      id: randomUUID(),
+      label: `Pair ${String(i + 1).padStart(2, "0")}`,
+      householdKeys: rows
+        .slice(i * 10, i * 10 + 10)
+        .map((r) => r["Household Key"]),
+    })),
+  };
+  await assert.rejects(
+    preloadLiveCampaign(runtime, plan, bytes, actor),
+    /not been activated/,
+  );
+  await pool.query("UPDATE outreach.deployment SET stage='outreach-live'"); // Isolated test database only.
+
+  // Failure on the final pair must roll back campaign, all residents and earlier pairs.
+  await pool.query(
+    "ALTER TABLE outreach.assignments ADD CONSTRAINT preload_late_failure CHECK(name<>'Pair 10') NOT VALID",
+  );
+  try {
+    await assert.rejects(preloadLiveCampaign(runtime, plan, bytes, actor));
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM outreach.campaigns WHERE id=$1",
+          [plan.campaign.id],
+        )
+      ).rows[0].n,
+      0,
+    );
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM outreach.import_people WHERE campaign_id=$1",
+          [plan.campaign.id],
+        )
+      ).rows[0].n,
+      0,
+    );
+  } finally {
+    await pool.query(
+      "ALTER TABLE outreach.assignments DROP CONSTRAINT preload_late_failure",
+    );
+  }
+  const [first, retry] = await Promise.all([
+    preloadLiveCampaign(runtime, plan, bytes, actor),
+    preloadLiveCampaign(runtime, plan, bytes, actor),
+  ]);
+  assert.deepEqual(first, retry);
+  assert.equal(first.campaign.name, plan.campaign.name);
+  assert.equal(first.campaign.dataKind, "live");
+  assert.equal(first.campaign.endAt, "2030-10-19T03:59:59.000Z");
+  assert.equal(first.campaign.deletionAt, "2030-11-18T04:59:59.000Z");
+  assert.deepEqual(first.receipt.counts, {
+    people: 100,
+    households: 100,
+    buildings: 100,
+  });
+  assert.equal(first.pairs.length, 10);
+  assert.equal(first.credentialsIssued, 0);
+  assert.deepEqual(
+    (
+      await pool.query(
+        "SELECT id,name,end_at,deletion_at FROM outreach.campaigns WHERE id<>$1 ORDER BY id",
+        [plan.campaign.id],
+      )
+    ).rows,
+    before,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.campaigns WHERE data_kind='synthetic'",
+      )
+    ).rows[0].n,
+    before.length,
+  );
+  const list = await listHostedCampaigns(runtime);
+  assert.equal(
+    list.find((c) => c.id === plan.campaign.id)?.importReceipt?.counts
+      .households,
+    100,
+  );
+  assert.equal(list.find((c) => c.id === plan.campaign.id)?.dataKind, "live");
+  await assert.rejects(
+    preloadLiveCampaign(
+      runtime,
+      {
+        ...plan,
+        pairs: plan.pairs.map((p, i) =>
+          i ? p : { ...p, label: "Different pair" },
+        ),
+      },
+      bytes,
+      actor,
+    ),
+  );
+  await assert.rejects(preloadLiveCampaign(runtime, plan, bytes, randomUUID()));
+  await assert.rejects(
+    pool.query("UPDATE outreach.deployment SET stage='synthetic-preview'"),
+    { code: "JC004" },
+  );
+  await assert.rejects(reader.query("SELECT * FROM outreach.import_people"), {
+    code: "42501",
+  });
+  await assert.rejects(
+    reader.query("UPDATE outreach.deployment SET stage='synthetic-preview'"),
+    { code: "42501" },
+  );
+  await verifyReader(runtime);
+
+  const assignmentId = plan.pairs[0].id;
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      id: randomUUID(),
+      assignmentId,
+      label: "Synthetic test link",
+    },
+    actor,
+  );
+  const token = issued.token!;
+  const download = await downloadHostedAssignment(runtime, token);
+  assert.equal(download.synthetic, false);
+  assert.equal(download.households.length, 10);
+  assert.ok(download.programs.every((p) => p.reviewedAt === "2026-09-18"));
+  assert.ok(!JSON.stringify(download).includes("sourceKey"));
+  assert.ok(!JSON.stringify(download).includes("VANID"));
+  const other = (
+    await assignmentAdmin(
+      runtime,
+      { action: "workspace", campaignId: plan.campaign.id },
+      actor,
+    )
+  ).workspace.assignments[1].householdIds[0];
+  const operation: VisitOperation = {
+    id: randomUUID(),
+    schemaVersion: 1,
+    kind: "visit",
+    assignmentId,
+    householdId: download.households[0].id,
+    visitId: randomUUID(),
+    createdAt: new Date().toISOString(),
+    result: "no_answer",
+    programs: [],
+    help: null,
+    corrections: [],
+    doNotContact: false,
+  };
+  const receipt = await submitHostedOperation(runtime, token, operation);
+  assert.deepEqual(
+    await submitHostedOperation(runtime, token, operation),
+    receipt,
+  );
+  await assert.rejects(
+    submitHostedOperation(runtime, token, {
+      ...operation,
+      id: randomUUID(),
+      visitId: randomUUID(),
+      householdId: other,
+    }),
+  );
+  assert.equal(
+    (await hostedFieldAdmin(runtime, { action: "status", assignmentId }, actor))
+      .snapshot.counts.attempts,
+    1,
+  );
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '40 days',deletion_at=((now()-interval '40 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [plan.campaign.id],
+  );
+  await assert.rejects(downloadHostedAssignment(runtime, token));
+  await pool.query("SELECT outreach.run_retention()");
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.campaigns WHERE id=$1",
+        [plan.campaign.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.import_people WHERE campaign_id=$1",
+        [plan.campaign.id],
+      )
+    ).rows[0].n,
+    0,
+  );
+  await assert.rejects(submitHostedOperation(runtime, token, operation));
   await verifyReader(runtime);
 });

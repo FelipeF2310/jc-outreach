@@ -111,7 +111,7 @@ export type Assignment = {
   eventName: string;
   eventEndsAt: string;
   deletionAt: string;
-  synthetic: true;
+  synthetic: boolean;
   households: Household[];
   supersededHouseholdIds?: string[];
   programs: {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DomainError } from "../lib/contracts";
+import { isHostedStage } from "./hosted-stage";
 
 export type AdminConfig = {
   origin: string;
@@ -17,10 +18,7 @@ export function adminConfig(
       503,
       "Administrator sign-in is not configured. The local practice console is separate.",
     );
-  if (
-    env.JCO_HOSTED_STAGE !== "synthetic-preview" ||
-    env.JCO_SYNTHETIC_ONLY === "1"
-  )
+  if (!isHostedStage(env.JCO_HOSTED_STAGE) || env.JCO_SYNTHETIC_ONLY === "1")
     throw unavailable();
   try {
     const origin = new URL(env.JCO_APP_ORIGIN ?? "");

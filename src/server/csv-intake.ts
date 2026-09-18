@@ -94,7 +94,7 @@ export async function importCsvBytes(
     return await db.transaction(async (tx) => {
       const scope = await tx.query<{ allowed: boolean }>(
         `SELECT (
-        current_user='jco_admin_reader' AND EXISTS(SELECT 1 FROM outreach.deployment WHERE singleton AND stage='synthetic-preview')
+        current_user='jco_admin_reader' AND EXISTS(SELECT 1 FROM outreach.deployment WHERE singleton AND stage IN ('synthetic-preview','outreach-live'))
         AND EXISTS(SELECT 1 FROM outreach.campaigns WHERE id=$1 AND deletion_at>now() AND end_at IS NOT NULL AND created_by IS NOT NULL)
       ) AS allowed`,
         [input.campaignId],
