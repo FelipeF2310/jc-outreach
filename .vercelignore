@@ -1,0 +1,38 @@
+# Defense in depth for local-source deployments; configure runtime secrets in
+# Vercel's environment settings, never by uploading a local environment file.
+.env
+.env.*
+private/
+data/
+imports/
+uploads/
+exports/
+backups/
+.jco-demo/
+.supabase/
+supabase/.temp/
+.git/
+.vercel/
+.next/
+node_modules/
+out/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.pem
+*.key
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.log
+*.zip
+.DS_Store
+# Keep tests/fixtures/*.json: hosted synthetic import code imports these files.
+# Do not exclude src/server SQL or migrations: Next traces shared demo modules.

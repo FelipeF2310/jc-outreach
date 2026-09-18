@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "expectedCounts": { "people": 4, "households": 3, "buildings": 2 },
+  "records": [
+    {
+      "VANID": "00000001", "Last Name": "Fixture", "First Name": "Resident A", "Age": "74",
+      "Residence Address": "100 Fixture Walk Apt 2A", "Zip": "07304", "Ward": "D",
+      "Block": "00001", "Lot": "01", "Qual": "C0201", "Property Location": "100 FIXTURE WALK", "Unit (verified)": "2A",
+      "Owner of Record": "SYNTHETIC OWNER A", "Matched Owner Name": "SYNTHETIC OWNER A", "Tier": "1",
+      "Tier Label": "Tier 1 - Confirmed owner-resident", "Match Rationale": "SYNTHETIC ONLY; must not reach volunteer payload",
+      "Persons in Household": "2", "Household Key": "00001-01-C0201", "Other Parcels Matched": "0", "Score": "150"
+    },
+    {
+      "VANID": "00000002", "Last Name": "Fixture", "First Name": "Resident B", "Age": "76",
+      "Residence Address": "100 Fixture Walk Apt 2A", "Zip": "07304", "Ward": "D",
+      "Block": "00001", "Lot": "01", "Qual": "C0201", "Property Location": "100 FIXTURE WALK", "Unit (verified)": "2A",
+      "Owner of Record": "SYNTHETIC OWNER A", "Matched Owner Name": "SYNTHETIC OWNER A", "Tier": "1",
+      "Tier Label": "Tier 1 - Confirmed owner-resident", "Match Rationale": "SYNTHETIC ONLY; must not reach volunteer payload",
+      "Persons in Household": "2", "Household Key": "00001-01-C0201", "Other Parcels Matched": "0", "Score": "150"
+    },
+    {
+      "VANID": "00000003", "Last Name": "Fixture", "First Name": "Resident C", "Age": "71",
+      "Residence Address": "100 Fixture Walk Apt 10B", "Zip": "07304", "Ward": "D",
+      "Block": "00001", "Lot": "01", "Qual": "C1002", "Property Location": "100 FIXTURE WALK", "Unit (verified)": "10B",
+      "Owner of Record": "SYNTHETIC OWNER C", "Matched Owner Name": "SYNTHETIC OWNER C", "Tier": "2",
+      "Tier Label": "Tier 2 - Synthetic label", "Match Rationale": "SYNTHETIC ONLY; must not reach volunteer payload",
+      "Persons in Household": "1", "Household Key": "00001-01-C1002", "Other Parcels Matched": "0", "Score": "100"
+    },
+    {
+      "VANID": "00000004", "Last Name": "Fixture", "First Name": "Resident D", "Age": "68",
+      "Residence Address": "200 Synthetic Lane", "Zip": "07302", "Ward": "E",
+      "Block": "00002", "Lot": "02", "Qual": "", "Property Location": "200 SYNTHETIC LANE", "Unit (verified)": "",
+      "Owner of Record": "SYNTHETIC OWNER D", "Matched Owner Name": "SYNTHETIC OWNER D", "Tier": "1",
+      "Tier Label": "Tier 1 - Confirmed owner-resident", "Match Rationale": "SYNTHETIC ONLY; must not reach volunteer payload",
+      "Persons in Household": "1", "Household Key": "00002-02-", "Other Parcels Matched": "0", "Score": "150"
+    }
+  ]
+}

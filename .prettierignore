@@ -1,0 +1,5 @@
+docs/PRD.md
+tests/fixtures/
+src/server/schema.sql
+package-lock.json
+next-env.d.ts

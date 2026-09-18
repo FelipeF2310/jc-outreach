@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "base": "outreach.json",
+  "cases": [
+    { "id": "valid-couple-and-buildings", "changes": [], "expected": "accept-four-people-three-households-two-buildings" },
+    { "id": "tier-three", "changes": [{ "sourceRow": 2, "set": { "Tier": "3" } }], "expected": "reject-entire-import-no-persistence" },
+    { "id": "unknown-tier", "changes": [{ "sourceRow": 0, "set": { "Tier": "9" } }], "expected": "reject-entire-import-no-persistence" },
+    { "id": "blank-tier", "changes": [{ "sourceRow": 0, "set": { "Tier": "" } }], "expected": "reject-entire-import-no-persistence" },
+    { "id": "conflicting-unit", "changes": [{ "sourceRow": 1, "set": { "Unit (verified)": "3B", "Residence Address": "100 Fixture Walk Apt 3B" } }], "expected": "block-household-grouping-for-source-correction" },
+    { "id": "missing-household-key", "changes": [{ "sourceRow": 0, "set": { "Household Key": "" } }], "expected": "block-import-for-source-correction" },
+    { "id": "missing-address", "changes": [{ "sourceRow": 3, "set": { "Residence Address": "" } }], "expected": "block-import-for-source-correction" },
+    { "id": "duplicate-source-person", "changes": [{ "appendCopyOf": 0 }], "expected": "flag-duplicate-source-person-do-not-create-another-person" },
+    { "id": "missing-required-header", "changes": [{ "deleteFieldFromAll": "Tier" }], "expected": "reject-entire-import-no-persistence" },
+    { "id": "unexpected-header", "changes": [{ "setFieldOnAll": { "key": "Unexpected Test Column", "value": "synthetic" } }], "expected": "reject-if-fixed-header-policy-is-adopted" }
+  ]
+}
