@@ -1,6 +1,6 @@
 # Engineering foundation
 
-Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. Production deployment remains pending. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
+Status: synthetic field/import and organizer-operation slices implemented; hosted completion updates and restricted reads are verified, and the owner confirmed the finish/sync/resume happy path. The synthetic site is now deployed to the stable Vercel HTTPS origin; public/fresh-browser checks passed, while sign-in/database reload from Vercel and physical-phone acceptance remain pending. Real CSV upload is disabled. The older-tab update-notice report is unresolved despite a passing isolated two-build frontend transition; see PLAN.md for evidence boundaries. Updated 2026-09-17. Product behavior follows the reconciled [PRD](PRD.md). Earlier slice notes below are historical.
 
 ## Stack selection
 

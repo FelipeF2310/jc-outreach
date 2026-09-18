@@ -125,6 +125,62 @@ test("CSV accepts BOM, reordered known headers, accents, escaped quotes and comm
   assert.equal(parsed.preview.valid, true);
   assert.equal(parsed.rows[0]["First Name"], 'Rósa, "Practice"');
 });
+test("approved export rationale spelling validates and finalizes without retaining discarded values", async () => {
+  const rows = clone();
+  for (const row of rows) row.Rationale = "DISCARDED EXPORT REASON";
+  const headers = sourceHeaders.map((header) =>
+    header === "Match Rationale" ? "Rationale" : header,
+  );
+  const bytes = csv(rows, [...headers].reverse());
+  const parsed = validateImport(bytes);
+  assert.equal(parsed.preview.valid, true);
+  assert.deepEqual(parsed.rows, validateImport(validBytes()).rows);
+  assert.deepEqual(parsed.preview.counts, fixture.expectedCounts);
+  assert.ok(!JSON.stringify(parsed).includes("DISCARDED EXPORT REASON"));
+  assert.notEqual(
+    parsed.preview.digest,
+    validateImport(validBytes()).preview.digest,
+  );
+  const id = await campaign();
+  const receipt = await finalizeImport(db, id, bytes, parsed.preview.digest!);
+  assert.deepEqual(receipt.counts, fixture.expectedCounts);
+  const stored = await db.query(
+    "SELECT row_to_json(s) AS source FROM outreach.import_people s WHERE campaign_id=$1",
+    [id],
+  );
+  assert.equal(stored.rows.length, 4);
+  assert.ok(!JSON.stringify(stored.rows).includes("DISCARDED EXPORT REASON"));
+});
+test("rationale alias keeps duplicate-header and whole-file Tier rejection intact", async () => {
+  const rows = clone();
+  for (const row of rows) row.Rationale = "DISCARDED EXPORT REASON";
+  const aliasHeaders = sourceHeaders.map((header) =>
+    header === "Match Rationale" ? "Rationale" : header,
+  );
+  for (const headers of [
+    [...sourceHeaders, "Rationale"],
+    sourceHeaders.map((header) => (header === "Age" ? "Rationale" : header)),
+  ]) {
+    const result = validateImport(csv(rows, headers));
+    assert.equal(result.preview.issues[0].code, "headers");
+    assert.deepEqual(result.rows, []);
+  }
+  for (const tier of ["3", "", "1.0", "unknown"]) {
+    rows[1].Tier = tier;
+    const bytes = csv(rows, aliasHeaders);
+    const parsed = validateImport(bytes);
+    assert.equal(parsed.preview.issues[0].code, "tier");
+    assert.deepEqual(parsed.rows, []);
+    assert.deepEqual(parsed.preview.households, []);
+    assert.ok(!JSON.stringify(parsed).includes("DISCARDED EXPORT REASON"));
+    const id = await campaign();
+    await assert.rejects(
+      finalizeImport(db, id, bytes, "0".repeat(64)),
+      status(422),
+    );
+    assert.deepEqual(await counts(id), empty);
+  }
+});
 test("malformed CSV, invalid UTF-8, repeated headers and unsupported sizes reject without leaking parser errors", () => {
   const duplicated = [...sourceHeaders];
   duplicated[0] = "Last Name";

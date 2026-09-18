@@ -2,6 +2,8 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
+Latest checkpoint (2026-09-17 EDT): the synthetic site is live at **https://jc-outreach-test.vercel.app/admin**. PR #2 passed CI and merged at `0a6eb25`; Vercel reports its Production deployment READY. Public HTTPS and fresh-browser checks passed, including the non-navigating volunteer logo. Hosted sign-in/database reload and physical-phone acceptance remain pending. Real CSV upload remains disabled. The following older checkpoints are historical where superseded by this update.
+
 Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. Migrations 006–007 and restricted-runtime checks passed on 2026-09-15. The owner confirmed named-link issuance, assignment download, local save, synchronization and administrator receipt of a new synthetic visit at 5:12:48 PM EDT that day. This is a live hosted happy-path check on the local app, not physical-phone/offline acceptance. See the agreed [delivery roadmap](docs/ROADMAP.md). This is not the completed field MVP or an approved real-data deployment. No real residents have been loaded; the PRD is unchanged.
 
 Current development slice (2026-09-17): browser-scoped walk-completion reporting is implemented. Hosted updates 011–012 and restricted-runtime checks passed. The owner confirmed finish/reload/sync/admin receipt/resume with unchanged visit totals. A missing update notice in an older tab remains under investigation: an isolated two-build Chromium/WebKit check passed, but the exact reported old bundle has not been recovered. See [verification evidence](docs/PLAN.md#completion-walkthrough-and-update-investigation--2026-09-17) and [setup and walkthrough](docs/HOSTED-SETUP.md#walk-completion-updates-011012--applied-and-read-verified). HTTPS hosting/physical-phone tests remain deferred, not completed.
@@ -12,9 +14,11 @@ Recovery follow-up: an actual local synthetic archive restore now passes expiry,
 
 ## Established requirements
 
-Hosting configuration checkpoint (2026-09-17 EDT): the authorized Vercel scope correction is verified. All seven runtime variables are Production-only; secret types are preserved and no values were resubmitted. No deployment exists yet. See [deployment evidence and next checks](docs/DEPLOYMENT.md).
+Hosting configuration checkpoint (2026-09-17 EDT): the authorized Vercel scope correction is verified. All seven runtime variables are Production-only; secret types are preserved and no values were resubmitted. The first main-branch HTTPS deployment is now ready. See [deployment evidence and next checks](docs/DEPLOYMENT.md).
 
-Local follow-up: the volunteer header logo is now non-interactive branding, not an organizer-workspace link. Its appearance is unchanged. Regression coverage verifies that tapping it preserves the field page and pending work. This fix is on `fix/volunteer-header`, not yet published or deployed; the existing running local app has not been restarted.
+Volunteer header follow-up: the non-interactive branding fix is published and deployed through PR #2. Regression coverage verifies that tapping it preserves the field page and pending work; a fresh hosted browser also confirms the non-navigating brand. The existing running local app has not been restarted.
+
+CSV compatibility follow-up: the parser now recognizes `Rationale` as an alias for the discarded `Match Rationale` column. Duplicate/unknown headers, disallowed tiers, invalid ZIP formatting and ambiguous households still reject. See [CSV intake status](docs/CSV-INTAKE.md). This local change does not enable hosted file uploads.
 
 - Approximately 10 concurrent volunteers; 938 household doors containing 1,157 listed people across 605 buildings.
 - Household-first outreach for Senior Freeze, Stay NJ, and ANCHOR; never determine eligibility.

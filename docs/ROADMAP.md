@@ -4,6 +4,10 @@ Agreed with the owner on 2026-09-15. Keep this roadmap current as work proceeds;
 
 ## Current position
 
+Latest checkpoint (2026-09-17 EDT): the first main-branch synthetic HTTPS deployment is READY at `https://jc-outreach-test.vercel.app/admin`, commit `0a6eb25` from CI-passing PR #2. Public and fresh-browser smoke checks passed, including the logo fix. Next: owner sign-in/reload on this origin, then physical-phone checks. Earlier statements below that no deployment exists are historical. No real records have been loaded.
+
+The owner requested support for the actual approved-source CSV and authorized local inspection. Source preparation and household review are needed; the subset decision is pending. The local parser now accepts the observed discarded rationale-header alias with strict duplicate-header and Tier rejection. Hosted real-file intake is still to implement after its access and infrastructure checks; possession/inspection of the source is not approval to load it. See [CSV intake status](CSV-INTAKE.md).
+
 Administrator sign-in, restricted Supabase access, campaign creation/reload, synthetic import and event/building-run assignment save/reload are confirmed. Migrations 006–007 and restricted-runtime checks passed. On 2026-09-15 the owner confirmed named-link issuance, two-household download, a new Unit 10B visit, synchronization and administrator receipt. The two total received visits include one earlier Unit 2A visit, not two new submissions. Real CSV uploads and production resident use remain disabled; physical-phone/offline and lifecycle gates remain open.
 
 ## Next milestone

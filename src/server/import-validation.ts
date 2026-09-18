@@ -80,7 +80,11 @@ export function validateImport(bytes: Uint8Array): ValidatedImport {
     );
     return rejected();
   }
-  const headers = records.shift() ?? [];
+  // The approved export uses this spelling for the same discarded column.
+  // Canonicalize before uniqueness checks so both spellings cannot coexist.
+  const headers = (records.shift() ?? []).map((header) =>
+    header === "Rationale" ? "Match Rationale" : header,
+  );
   if (
     headers.length !== sourceHeaders.length ||
     new Set(headers).size !== headers.length ||
