@@ -17,6 +17,32 @@ async function openAssignment(page: Page, origin = "") {
   return token as string;
 }
 
+test("volunteer branding cannot navigate away from saved field work", async ({
+  page,
+}) => {
+  await openAssignment(page);
+  const header = page.getByRole("banner");
+  const brand = header.locator(".field-brand");
+  await expect(brand).toBeVisible();
+  await expect(header.getByRole("link")).toHaveCount(0);
+  await expect(header.getByRole("button")).toHaveCount(0);
+  await page.getByRole("button", { name: /Unit 10B/ }).click();
+  await page.getByLabel("No answer", { exact: true }).check();
+  await page.getByRole("button", { name: "Save & next" }).click();
+  await expect(
+    page.getByText("1 waiting to sync", { exact: true }),
+  ).toBeVisible();
+  await brand.click();
+  await expect(page).toHaveURL(/\/field$/);
+  await expect(
+    page.getByText("1 waiting to sync", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("1 waiting to sync", { exact: true }),
+  ).toBeVisible();
+});
+
 test("offline saved visit and help survive closing the page, sync and appear in admin", async ({
   page,
   context,

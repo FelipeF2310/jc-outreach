@@ -12,6 +12,8 @@ Recovery follow-up: an actual local synthetic archive restore now passes expiry,
 
 ## Established requirements
 
+Local follow-up: the volunteer header logo is now non-interactive branding, not an organizer-workspace link. Its appearance is unchanged. Regression coverage verifies that tapping it preserves the field page and pending work. This fix is on `fix/volunteer-header`, not yet published or deployed; the existing running local app has not been restarted.
+
 - Approximately 10 concurrent volunteers; 938 household doors containing 1,157 listed people across 605 buildings.
 - Household-first outreach for Senior Freeze, Stay NJ, and ANCHOR; never determine eligibility.
 - Tier 1 and Tier 2 only. Tier 3, the renter-exclusion file, and the original voter file stay outside this project.
