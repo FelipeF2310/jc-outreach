@@ -2,6 +2,8 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
+Upload-safety checkpoint (2026-09-17 EDT): a read-only provider/code review found a database logging gate before real data: slow-query diagnostics allow full parameters, and error detail needs tightening. A repeatable restricted audit reports four controls for review; no settings or records were changed. Vercel lists no applicable log drains, but provider body/temp-storage guarantees remain unverified. See [upload-safety evidence and next steps](docs/UPLOAD-SAFETY.md). Real-file intake remains disabled.
+
 Latest checkpoint (2026-09-17 EDT): the synthetic site is live at **https://jc-outreach-test.vercel.app/admin** at deployed commit `0a6eb25`. The owner now confirms hosted administrator sign-in/reload restores existing practice campaigns, and the basic offline-save/browser-reopen/sync/admin-receipt test worked on both phones. Exact devices/browser versions and the remaining phone failure/update scenarios are not recorded as verified. Real CSV upload remains disabled. The following older checkpoints are historical where superseded by this update.
 
 Current local slice: **Household list → Import synthetic households → Import source → Choose a practice CSV file** offers synthetic downloads, local exact-file recognition, server preview and explicit finalization. Only unchanged supplied examples are accepted; file contents and filenames are not uploaded or saved in browser storage. Existing server authorization and fixed-fixture database finalization remain unchanged. This is a practice-file workflow, not real CSV ingress, and has not been deployed. See [CSV intake status](docs/CSV-INTAKE.md).

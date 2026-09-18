@@ -1,5 +1,7 @@
 # Approved CSV intake status
 
+Infrastructure checkpoint (2026-09-17 EDT): the [upload-safety review](UPLOAD-SAFETY.md) found database logging controls that must be resolved before real-file ingress. The read-only audit is implemented; no hosted settings changed. Provider body/temp retention remains unverified, and the proposed HTTP transport bound must fit Vercel's documented payload limit rather than blindly exposing the parser's 5 MiB allowance.
+
 The owner requested support for the actual source artifact and authorized local inspection on 2026-09-17. No resident data was uploaded or stored in the application, and the original file remains unchanged. Source-specific counts and logical record numbers are in an ignored private report; no real examples belong in fixtures or this public repository.
 
 ## Implemented compatibility
