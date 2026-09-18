@@ -1,5 +1,13 @@
 # HTTPS synthetic phone-test deployment
 
+## Current configuration handoff
+
+Owner/browser report: `jc-outreach-test` now exists under `felipefurtado314-6006s-projects`, connected to `FelipeF2310/jc-outreach`, production branch `main`, Node 24.x, `npm ci`, `npm run build`, repository root and default Next.js output. Assigned domain: `https://jc-outreach-test.vercel.app`. No production deployment is reported. The migration-owner variable was removed; seven runtime entries exist. The owner reports saving stage, canonical origin and Supabase URL as Production-only Secret entries, with all redeploy prompts dismissed. Write-only saved values cannot be independently read back. The other four runtime values are still pending manual entry.
+
+An ignored, owner-only `private/copy-vercel-config.command` helper is available on this Mac. It reads the private local configuration without modifying it, validates the expected synthetic project and reader-role session-pooler URL with verified-TLS-compatible settings, checks the multiline CA, and copies only the four allowlisted remaining values after interactive consent. It never exports the migration-owner setting, prints values or uploads them. Synthetic rejection checks, shell syntax and actual local validation passed; no clipboard or remote calls occur in check-only mode. The Terminal helper was opened for owner input; successful clipboard paste/save into Vercel is not yet verified. Pause browser AI and clipboard-history/sync tools before manual entry. Enter after each save clears the current clipboard but cannot clear clipboard-manager history. Use Production scope only and do not deploy yet.
+
+Git integration is connected, so new branch pushes and main merges can trigger deployment. Hold `fix/volunteer-header` locally until runtime configuration and deployment authorization are ready. No Git push, billing change, database change or deployment was performed during this configuration handoff. The older preparation notes below are historical where superseded here.
+
 Status: prepared, not deployed. The owner authorized moving to HTTPS and phone testing on 2026-09-17 and signs into Vercel using GitHub. Owner-reported account: `felipefurtado314-6006`, Hobby plan. Existing project: `jcos`, domain `jcos-kappa.vercel.app`, last touched June 10, no Git repository connected. The owner says this old project need not be preserved, but deleting it is unnecessary for publishing this app and has not been performed. The outreach deployment project and stable origin remain undecided. The available Vercel integration is not connected. No deployment, secret upload, paid subscription or new database has occurred.
 
 ## GitHub publication checkpoint
