@@ -7,6 +7,9 @@ export const uploadLoggingSettings = [
   "log_parameter_max_length",
   "log_parameter_max_length_on_error",
   "log_error_verbosity",
+  "log_min_messages",
+  "log_min_error_statement",
+  "log_transaction_sample_rate",
   "pgaudit.log",
   "pgaudit.log_parameter",
   "auto_explain.log_min_duration",
@@ -22,13 +25,27 @@ type Check = { setting: Setting; status: "pass" | "review" | "unknown" };
 export function assessUploadLogging(
   rows: { name: string; setting: string | null }[],
 ) {
+  const exactly = (name: string, value: string) => {
+    const matches = rows.filter((row) => row.name === name);
+    return matches.length === 1 && matches[0].setting === value;
+  };
+  const routineErrorTextSuppressed =
+    exactly("log_min_messages", "panic") &&
+    exactly("log_min_error_statement", "panic");
   const expected: Record<Setting, readonly string[]> = {
     log_statement: ["none", "ddl"],
     log_min_duration_statement: ["-1"],
     log_min_duration_sample: ["-1"],
     log_parameter_max_length: ["0"],
     log_parameter_max_length_on_error: ["0"],
-    log_error_verbosity: ["terse"],
+    // Terse alone can still expose primary error text (e.g. invalid input).
+    // Suppression is tested against actual PostgreSQL server logs, not assumed.
+    log_error_verbosity: routineErrorTextSuppressed
+      ? ["terse", "default", "verbose"]
+      : [],
+    log_min_messages: ["panic"],
+    log_min_error_statement: ["panic"],
+    log_transaction_sample_rate: ["0"],
     "pgaudit.log": ["none"],
     "pgaudit.log_parameter": ["off"],
     "auto_explain.log_min_duration": ["-1"],
@@ -50,6 +67,7 @@ export function assessUploadLogging(
   return {
     checks,
     loggingBaselinePassed: checks.every((check) => check.status === "pass"),
+    routineErrorTextSuppressed,
     // A green database check never opens ingress or approves real resident use.
     realDataApproved: false as const,
   };

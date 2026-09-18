@@ -1,6 +1,6 @@
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, chmod } from "node:fs/promises";
+import { mkdtemp, rm, chmod, readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -35,6 +35,8 @@ import { hashToken } from "../../src/server/service";
 import { hostedImport } from "../../src/server/hosted-imports";
 import { createHostedCampaign } from "../../src/server/hosted-campaigns";
 import { ownerPreflight } from "../../src/server/owner-preflight";
+import { configureRuntimeLogging } from "../../src/server/runtime-logging";
+import { inspectUploadLogging } from "../../src/server/upload-safety";
 import { finalizeImport } from "../../src/server/import-service";
 import {
   rehearsalCsv,
@@ -3783,5 +3785,140 @@ test("actual isolated archive restore preserves expiry and permissions, rolls ba
     await rm(archive, { force: true });
     // The test suite stops and removes its entire task-owned temporary cluster.
     // No generic DROP/restore/cleanup command is pointed at a configured server.
+  }
+});
+
+test("role-scoped logging protection removes synthetic payloads from actual server logs without changing error delivery or permissions", async () => {
+  // Disposable native cluster only. Never run this fault/log probe on Supabase.
+  // Earlier migration tests intentionally transferred table ownership. Restore
+  // this fixture's owner identity so the operator scope check is exercised.
+  await pool.query("ALTER TABLE outreach.campaigns OWNER TO jco_test_owner");
+  await pool.query(`ALTER ROLE jco_admin_reader SET session_preload_libraries='auto_explain';
+    ALTER ROLE jco_admin_reader SET auto_explain.log_min_duration=0;
+    ALTER ROLE jco_admin_reader SET auto_explain.log_parameter_max_length=-1;
+    CREATE FUNCTION public.jco_logging_fixture(payload text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+    BEGIN RAISE WARNING '%',payload; RAISE EXCEPTION USING MESSAGE=payload,DETAIL=payload; END $$;
+    REVOKE ALL ON FUNCTION public.jco_logging_fixture(text) FROM PUBLIC;
+    GRANT EXECUTE ON FUNCTION public.jco_logging_fixture(text) TO jco_admin_reader;`);
+  const makeReader = () =>
+    new Pool({
+      host: directory,
+      port: 55439,
+      database: "postgres",
+      user: "jco_admin_reader",
+      max: 1,
+    });
+  const stale = makeReader();
+  const fresh = makeReader();
+  const staleClient = await stale.connect();
+  const readLog = () => readFile(join(directory, "server.log"), "utf8");
+  const unsafeCanary = `SYNTHETIC_UNSAFE_${randomUUID()}`;
+  const protectedCanary = `SYNTHETIC_PROTECTED_${randomUUID()}`;
+  try {
+    await assert.rejects(
+      staleClient.query("SELECT public.jco_logging_fixture($1)", [
+        unsafeCanary,
+      ]),
+      { code: "P0001" },
+    );
+    for (
+      let attempt = 0;
+      attempt < 20 && !(await readLog()).includes(unsafeCanary);
+      attempt++
+    )
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.ok(
+      (await readLog()).includes(unsafeCanary),
+      "baseline reproduces parameter/error disclosure in a real server log",
+    );
+    const before = (
+      await pool.query(
+        "SELECT rolconfig FROM pg_roles WHERE rolname='jco_admin_reader'",
+      )
+    ).rows;
+    const db = postgresDatabase(pool);
+    const failing: Database = {
+      ...db,
+      transaction: (work) =>
+        db.transaction(async (tx) => {
+          let changed = 0;
+          return work({
+            ...tx,
+            async exec(sql) {
+              await tx.exec(sql);
+              if (sql.startsWith("ALTER ROLE") && ++changed === 2)
+                throw Error("Synthetic configuration interruption");
+            },
+          });
+        }),
+    };
+    await assert.rejects(
+      configureRuntimeLogging(failing, async () => {}),
+      /Synthetic configuration interruption/,
+    );
+    assert.deepEqual(
+      (
+        await pool.query(
+          "SELECT rolconfig FROM pg_roles WHERE rolname='jco_admin_reader'",
+        )
+      ).rows,
+      before,
+      "partial configuration rolls back",
+    );
+    let captured = false;
+    await configureRuntimeLogging(db, async (snapshot) => {
+      captured = true;
+      assert.ok(snapshot.settings.includes("auto_explain.log_min_duration=0"));
+      assert.ok(
+        !snapshot.settings.some((value) =>
+          value.startsWith("session_preload_libraries="),
+        ),
+      );
+    });
+    assert.equal(captured, true);
+    assert.equal(
+      (await staleClient.query("SHOW log_min_messages")).rows[0]
+        .log_min_messages,
+      "warning",
+      "already-open sessions need recycling",
+    );
+    const audit = await inspectUploadLogging(postgresDatabase(fresh));
+    assert.equal(audit.routineErrorTextSuppressed, true);
+    assert.ok(
+      audit.checks
+        .filter((check) => !check.setting.startsWith("pgaudit."))
+        .every((check) => check.status === "pass"),
+      "local server has auto_explain, but does not provide pgAudit",
+    );
+    const offset = (await readLog()).length;
+    await fresh.query("SELECT $1::text", [protectedCanary]);
+    await assert.rejects(
+      fresh.query("SELECT public.jco_logging_fixture($1)", [protectedCanary]),
+      { code: "P0001" },
+    );
+    await assert.rejects(fresh.query("SELECT $1::integer", [protectedCanary]), {
+      code: "22P02",
+    });
+    await fresh.query("SELECT 1");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(
+      (await readLog()).slice(offset).includes(protectedCanary),
+      false,
+      "bind values, primary errors, DETAIL, WARNING and context stay out of the server log",
+    );
+    assert.equal(
+      (await pool.query("SHOW log_min_messages")).rows[0].log_min_messages,
+      "warning",
+      "owner/other session logging is unchanged",
+    );
+    await pool.query("DROP FUNCTION public.jco_logging_fixture(text)");
+    await verifyReader(postgresDatabase(fresh));
+    await assert.rejects(fresh.query("SELECT * FROM outreach.people"), {
+      code: "42501",
+    });
+  } finally {
+    staleClient.release();
+    await Promise.all([stale.end(), fresh.end()]);
   }
 });

@@ -20,7 +20,7 @@ Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The on
 - [ ] A02: Volunteer endpoints and local storage exclude matching fields and unrelated residents.
 - [ ] A03: A provider-authenticated but non-allowlisted user cannot enter administrator endpoints.
 - [ ] A04: Simultaneous assignment requests cannot intentionally assign the same household twice in one event.
-- [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials.
+- [ ] A05: Logs, traces, errors, and upload artifacts do not retain source bodies or raw access credentials. Role-scoped logging protection passed native synthetic canary/rollback tests, owner-run Supabase effective-state/privilege verification at 2026-09-18T03:31:34Z and an independent 03:34:59Z read-only audit (13 controls). Remaining provider request-body/temp-storage/telemetry boundaries are still open. See [UPLOAD-SAFETY.md](UPLOAD-SAFETY.md). This partial evidence does not close A05.
 - [ ] A06: Approved confirmed administrators can sign in with email/password, reload, refresh sessions and sign out on the actual HTTPS origin. Incorrect passwords, unconfirmed accounts and non-allowlisted identities are rejected. No signup/email-code endpoint is exposed by the app.
 - [ ] A07: Passwords are absent from application storage, URLs, responses and hosting logs. Provider abuse/rate-limit controls and a secure administrator recovery process are tested before launch; recovery UI guidance alone is not sufficient.
 

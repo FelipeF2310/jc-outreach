@@ -30,6 +30,27 @@ The owner has created a Supabase project and administrator accounts; live app au
 
 ## Browser/server boundary
 
+### Runtime database logging — verified role-scoped protection
+
+The operator-only fixed policy in `runtime-logging.ts` configures eight logging
+defaults on `jco_admin_reader`; it changes no records, grants, other roles or
+schedules. Supabase supports diagnostic/parameter and message-threshold controls
+but not the requested verbosity formatting. The selected alternative suppresses
+routine SQL/error text for application sessions (`log_min_messages=panic` and
+`log_min_error_statement=panic`), leaving existing sanitized application responses
+and other-role diagnostics intact. This trades detailed runtime database logs for
+payload minimization; it is not a claim about provider-wide/crash logging.
+
+Configuration is atomic with a private pre-change snapshot. Idle runtime sessions
+are explicitly recycled, active/remaining old sessions prevent a complete pass,
+and the restricted pooler connection is checked after the change. The owner-run
+03:31:34Z check and independent 03:34:59Z audit on 2026-09-18 pass all 13 effective
+controls. Native synthetic log canaries prove ordinary primary-error, detail,
+warning and parameter behavior, rollback and stale-session handling. See
+[UPLOAD-SAFETY.md](UPLOAD-SAFETY.md) for evidence, recovery and remaining provider
+boundaries. No HTTP configuration endpoint, broad runtime capability, applied-SQL
+edit or real-data toggle is introduced.
+
 ### Practice CSV picker — local follow-up
 
 The file picker recognizes exact shared synthetic fixture bytes locally (64 KiB maximum before reading) and forwards only a case ID through the unchanged authenticated import endpoint. Filename, bytes and arbitrary row data are not uploaded or persisted by the picker. The backend independently regenerates/validates its fixture; fixed SQL bytes/digest, narrow function grants and all stage checks remain unchanged. This is not the production raw-file path. File changes invalidate preview/approval, asynchronous reads are generation-guarded, and ambiguous finalization freezes source selection until receipt/retry. Existing design tokens and disclosure/confirmation patterns are retained; there is no volunteer/offline-schema change.

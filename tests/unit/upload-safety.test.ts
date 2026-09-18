@@ -14,6 +14,9 @@ const safe = [
   ["log_parameter_max_length", "0"],
   ["log_parameter_max_length_on_error", "0"],
   ["log_error_verbosity", "terse"],
+  ["log_min_messages", "panic"],
+  ["log_min_error_statement", "panic"],
+  ["log_transaction_sample_rate", "0"],
   ["pgaudit.log", "none"],
   ["pgaudit.log_parameter", "off"],
   ["auto_explain.log_min_duration", "-1"],
@@ -56,7 +59,7 @@ test("each unsafe or missing logging control fails closed without reflecting val
   }
 });
 
-test("slow-query diagnostics with full parameters and detailed errors require review", () => {
+test("slow-query diagnostics with full parameters require review despite error suppression", () => {
   const observed = safe.map((row) => ({
     ...row,
     setting:
@@ -73,8 +76,26 @@ test("slow-query diagnostics with full parameters and detailed errors require re
   assert.equal(result.loggingBaselinePassed, false);
   assert.equal(
     result.checks.filter((check) => check.status === "review").length,
-    4,
+    3,
   );
+});
+
+test("only verified routine-error suppression compensates for unavailable verbosity control", () => {
+  for (const verbosity of ["default", "terse", "verbose"]) {
+    const rows = safe.map((row) =>
+      row.name === "log_error_verbosity" ? { ...row, setting: verbosity } : row,
+    );
+    assert.equal(assessUploadLogging(rows).loggingBaselinePassed, true);
+    for (const name of ["log_min_messages", "log_min_error_statement"])
+      assert.equal(
+        assessUploadLogging(
+          rows.map((row) =>
+            row.name === name ? { ...row, setting: "error" } : row,
+          ),
+        ).loggingBaselinePassed,
+        false,
+      );
+  }
 });
 
 test("audit is read-only, scoped before settings access, and checks function overrides", async () => {
