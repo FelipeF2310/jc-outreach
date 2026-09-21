@@ -1,6 +1,8 @@
 # Engineering foundation
 
-## Administrator resident names — local, unapplied migration 016 (2026-09-20)
+## Administrator resident names — migration 016 applied (2026-09-20 ET)
+
+Owner execution and independent restricted read-only aggregate verification succeeded on September 21 UTC. Applied 016 is immutable; no migration runs during deployment. Matching UI publication and hosted visual verification remain pending. See [operator evidence](HOSTED-SETUP.md#resident-name-update-016--applied-and-verified).
 
 The existing authenticated assignment workspace adds optional `households[].people` containing **firstName/lastName only**, not matching fields or source/person IDs. Additive 016 extends only the existing NOLOGIN assignment executor's column-level SELECT grant; its campaign RLS, fixed-search-path function owner, provider/PUBLIC denial and the runtime's bounded-function-only access remain. The function explicitly rejects expired campaigns before projecting names. This is administrator data, not an expanded volunteer payload. No resident row, assignment, credential, deadline or deployment stage is changed.
 

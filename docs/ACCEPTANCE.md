@@ -8,6 +8,8 @@ Scope/evidence update (2026-09-20): the owner selected administrator usability, 
 
 Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The one-time review clarifications below are requirements to test, not passing test results.
 
+Resident-name installation update: owner success at 2026-09-21 01:39:55 UTC and independent READ ONLY verification at 02:00:34 UTC confirm 016 applied, names/counts across two imported campaigns and restricted privileges/logging. Retention health separately passes. This supersedes the installation-pending statement above; website publication and organizer visual verification remain pending, so C12 is still open.
+
 ## Import and authorization
 
 Local evidence update (2026-09-18): the new general CSV engine and unregistered administrator adapter pass authorization-before-body, streamed-size, bounded-preview, source-digest, minimization, direct database validation, retry/conflict, expiry and rollback tests. Native PostgreSQL also passes a 1,200-person import → selected assignment → minimal download → repeat-safe visit submission. These are synthetic local checks, not a hosted upload or browser test. Migration 014 is unapplied/ungranted and real ingress remains closed; no production checkbox is closed by this result. Details: [CSV-INTAKE.md](CSV-INTAKE.md).
@@ -30,7 +32,7 @@ Local evidence update (2026-09-18): the new general CSV engine and unregistered 
 
 ## Campaign administration
 
-- [ ] C12: Expanded assigned and reassigned household lists show the correct resident names under one address/unit, stay scoped to the selected unexpired campaign, render names as text and keep them out of administrator browser storage. Old database responses do not invent names. Synthetic regression/native evidence is in PLAN.md; hosted install, publication and organizer visual verification remain pending.
+- [ ] C12: Expanded assigned and reassigned household lists show the correct resident names under one address/unit, stay scoped to the selected unexpired campaign, render names as text and keep them out of administrator browser storage. Old database responses do not invent names. Synthetic regression/native evidence is in PLAN.md; hosted database installation/read-only verification pass. Publication and organizer visual verification remain pending.
 
 - [x] C01: An approved administrator creates a synthetic campaign, reloads and retrieves the same saved record on the actual hosted connection. Owner confirmed on 2026-09-15 after automatic-list fix; local HTTP UI backed by live Supabase, not HTTPS deployment acceptance.
 - [ ] C02: The server/database rejects invalid dates and client-supplied authority/deletion fields; end/deletion timestamps use New York calendar arithmetic across DST.
