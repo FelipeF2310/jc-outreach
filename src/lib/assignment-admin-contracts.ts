@@ -62,6 +62,8 @@ export type AssignmentWorkspace = {
     unit: string;
     ward: string;
     peopleCount: number;
+    // Optional during rolling deployment against the pre-016 database.
+    people?: { firstName: string; lastName: string }[];
     suppressed: boolean;
   }[];
   events: { id: string; name: string; endsAt: string }[];

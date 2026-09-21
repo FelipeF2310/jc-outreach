@@ -11,11 +11,13 @@ export function AssignmentFieldControls({
   name,
   administratorId,
   deletionAt,
+  live = false,
 }: {
   assignmentId: string;
   name: string;
   administratorId: string;
   deletionAt: string;
+  live?: boolean;
 }) {
   const [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false);
@@ -182,9 +184,9 @@ export function AssignmentFieldControls({
       {open && (
         <>
           <p className="fine">
-            Synthetic testing only. A private link grants access to this
-            assignment. Send it only to its assigned volunteer; do not forward
-            it. New links do not revoke earlier links.
+            {!live && "Synthetic testing only. "}A private link grants access to
+            this assignment. Send it only to its assigned volunteer; do not
+            forward it. New links do not revoke earlier links.
           </p>
           {!storageReady && (
             <p role="alert">

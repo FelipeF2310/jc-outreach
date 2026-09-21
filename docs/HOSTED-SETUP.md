@@ -1,4 +1,22 @@
-# Hosted synthetic-preview setup
+# Hosted setup and operator procedures
+
+## Resident-name update 016 — applied and verified
+
+The owner-run retry succeeded at **2026-09-21T01:39:55.186Z**. Independent restricted READ ONLY verification at **02:00:34 UTC** matches: two imported assignment-eligible campaigns, 377 households, 477 residents, valid minimal name projection and restricted privileges; logging protections also pass. At 02:01:39 UTC, validated retention status reports a recent 02:01:00 UTC heartbeat with zero overdue/failed campaigns. Applied migrations 002–016 are immutable. No engineer write or repeated migration occurred during verification. Website publication and the hosted administrator visual check remain pending. **Steps 1–3 below are completed history, not instructions to rerun; continue at steps 4–5.**
+
+Historical retry note (2026-09-21 01:33 UTC): the first attempt stopped at `connection_configuration`, with `migrationCommitted=false`, before either database connection. The private launcher appended a newline to the password; the exact-byte validator correctly rejected it. The launcher now uses the tracked/tested `scripts/lib/operator-password.sh` writer with no delimiter and preserves entered whitespace. No password reset, TLS relaxation, database reset or SQL change was needed; the corrected retry succeeded as recorded above.
+
+Current scope (September 20, 2026): the hosted Ward A campaign is live, alongside existing practice campaigns; applied migrations 002–016 are immutable. The earlier synthetic-only setup sections below are historical where superseded by [LIVE-PRELOAD.md](LIVE-PRELOAD.md). Do not rerun initialization, import, stage activation or retention setup.
+
+The new administrator display uses first/last names beneath each expanded assigned door. The volunteer household screen already shows names and does not need a larger payload. Local migration 016 extends only the existing campaign-scoped administrator projection, granting the existing non-login executor two name columns. It does not reimport a CSV or change resident rows, assignments, visits, links, passwords, campaign dates or the deletion schedule.
+
+1. Open ignored, mode-0700 `private/update-admin-residents.command`. Review the preservation notice and type **RESIDENT-NAMES-UPDATE**. Enter the existing **database-owner** password in the hidden prompt, never in chat. The wrapper supplies only the reviewed project/CA; the password travels through stdin, not command arguments.
+2. The helper checks verified TLS, the restricted runtime/logging baseline and owner scope, then checks prior migration checksums and installs 016 transactionally. It subsequently verifies only aggregate name counts/field shape through the restricted runtime in a READ ONLY transaction. No names, addresses, private URLs or connection secrets are printed. Legacy practice imports without a campaign end timestamp are not assignment workspaces and are excluded from that verification.
+3. Share only the sanitized summary. A failure reports its stage and whether the migration committed; stop for diagnosis rather than resetting or rerunning initialization. A verification failure after commit is not permission to reset data.
+4. Publish the compatible reviewed application through the normal GitHub/Vercel workflow separately. The UI remains compatible with the pre-016 response but explicitly reports unavailable names; publication alone cannot grant the database projection.
+5. In the signed-in administrator page, select Ward A and **Refresh assignments**, then expand **View assigned doors** for a pair. Confirm names under the correct address/unit, one door for multiple residents, unchanged pair counts and no synthetic-only warning in live link controls. Reload to verify. Do not record real test visits or issue links just for this display check; do not share screenshots containing residents.
+
+Installation and independent database verification are complete. Website publication and the hosted visual check remain pending. Local native tests cover rollback/replay, unchanged records, restricted grants, selected-campaign names, expired/foreign access, minimal volunteer payloads and revocation/suppression behavior. [OPERATIONS.md](OPERATIONS.md) contains the short field handoff. This update does not close the remaining acceptance gates.
 
 ## Runtime logging protection — applied and verified
 

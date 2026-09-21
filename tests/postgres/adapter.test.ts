@@ -38,6 +38,8 @@ import { ownerPreflight } from "../../src/server/owner-preflight";
 import { configureRuntimeLogging } from "../../src/server/runtime-logging";
 import { importCsvBytes } from "../../src/server/csv-intake";
 import { migrateLive } from "../../src/server/migrate-live";
+import { migrateAdminResidents } from "../../src/server/migrate-admin-residents";
+import { verifyAdminResidents } from "../../src/server/verify-admin-residents";
 import { preloadLiveCampaign } from "../../src/server/live-preload";
 import { sourceHeaders } from "../../src/lib/import-contracts";
 import importFixture from "../fixtures/outreach.json";
@@ -4587,5 +4589,320 @@ test("live activation preserves practice data and atomic paired preload survives
     0,
   );
   await assert.rejects(submitHostedOperation(runtime, token, operation));
+  await verifyReader(runtime);
+});
+
+test("administrator workspace includes only scoped resident names and preserves access boundaries", async () => {
+  const runtime = postgresDatabase(reader);
+  const actor = randomUUID();
+  const campaignId = randomUUID();
+  await createHostedCampaign(
+    runtime,
+    {
+      id: campaignId,
+      name: "Resident-name SYNTHETIC TEST",
+      endDate: "2030-10-18",
+    },
+    actor,
+  );
+  await importCsvBytes(
+    runtime,
+    {
+      action: "finalize",
+      campaignId,
+      digest: validateImport(rehearsalCsv("valid-couple-and-buildings")).preview
+        .digest,
+      confirmed: true,
+    },
+    rehearsalCsv("valid-couple-and-buildings"),
+    actor,
+  );
+  const foreignCampaign = await createHostedCampaign(
+    runtime,
+    { id: randomUUID(), name: "Other SYNTHETIC TEST", endDate: "2030-10-18" },
+    actor,
+  );
+  await importCsvBytes(
+    runtime,
+    {
+      action: "finalize",
+      campaignId: foreignCampaign.id,
+      digest: validateImport(rehearsalCsv("valid-couple-and-buildings")).preview
+        .digest,
+      confirmed: true,
+    },
+    rehearsalCsv("valid-couple-and-buildings"),
+    actor,
+  );
+  await pool.query(
+    "UPDATE outreach.people SET last_name='OTHER CAMPAIGN CANARY' WHERE household_id IN(SELECT id FROM outreach.households WHERE campaign_id=$1)",
+    [foreignCampaign.id],
+  );
+  const fingerprints = async () =>
+    Promise.all(
+      retentionTables.map(
+        async (table) =>
+          (
+            await pool.query(
+              `SELECT md5(coalesce(string_agg(row_to_json(t)::text, '' ORDER BY row_to_json(t)::text),'')) AS fingerprint FROM outreach.${table} t`,
+            )
+          ).rows,
+      ),
+    );
+  const before = await fingerprints();
+  await assert.rejects(
+    verifyAdminResidents(runtime),
+    /projection could not be verified/,
+  );
+  const migrator = new Pool({
+    host: directory,
+    port: 55439,
+    database: "postgres",
+    user: "jco-test-migrator",
+  });
+  const owner = postgresDatabase(migrator);
+  try {
+    const fault: Database = {
+      ...owner,
+      transaction: (work) =>
+        owner.transaction((tx) =>
+          work({
+            ...tx,
+            exec: async (sql) => {
+              await tx.exec(sql);
+              if (sql.startsWith("-- Read-only administrator projection"))
+                throw Error("Synthetic late migration failure");
+            },
+          }),
+        ),
+    };
+    await assert.rejects(
+      migrateAdminResidents(fault),
+      /Synthetic late migration failure/,
+    );
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_column_privilege('jco_assignment_executor','outreach.people','first_name','SELECT') AS allowed",
+        )
+      ).rows[0].allowed,
+      false,
+    );
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM outreach.schema_migrations WHERE name='016_admin_residents.sql'",
+        )
+      ).rows[0].n,
+      0,
+    );
+    await migrateAdminResidents(owner);
+    await migrateAdminResidents(owner);
+  } finally {
+    await migrator.end();
+  }
+  assert.deepEqual(
+    await fingerprints(),
+    before,
+    "migration and retry preserve every campaign/child record",
+  );
+  const verification = await verifyAdminResidents(runtime);
+  assert.equal(verification.residentNamesVerified, true);
+  const campaignList = await listHostedCampaigns(runtime);
+  assert.ok(campaignList.some((c) => c.importReceipt && c.endAt === null));
+  assert.equal(
+    verification.campaignsChecked,
+    campaignList.filter(
+      (c) => c.importReceipt && c.assignmentsReady && c.endAt !== null,
+    ).length,
+    "verify assignment-eligible imports, not legacy imports without an event deadline",
+  );
+  assert.ok(verification.campaignsChecked >= 2);
+  assert.ok(verification.residentsChecked >= 8);
+  assert.doesNotMatch(
+    JSON.stringify(verification),
+    /Resident A|Fixture|OTHER CAMPAIGN CANARY|firstName|lastName/,
+  );
+  const { workspace } = await assignmentAdmin(
+    runtime,
+    { action: "workspace", campaignId },
+    actor,
+  );
+  const unit = workspace.households.find((h) => h.unit === "2A")!;
+  assert.equal(unit.peopleCount, 2);
+  assert.deepEqual(unit.people, [
+    { firstName: "Resident A", lastName: "Fixture" },
+    { firstName: "Resident B", lastName: "Fixture" },
+  ]);
+  assert.equal(workspace.households.length, 3);
+  assert.deepEqual(
+    workspace.households.map((h) => h.people?.length),
+    [2, 1, 1],
+  );
+  assert.doesNotMatch(
+    JSON.stringify(workspace),
+    /OTHER CAMPAIGN CANARY|Owner of Record|VANID|Match Rationale|token_hash|Score/,
+  );
+  for (const h of workspace.households)
+    for (const person of h.people!) {
+      assert.deepEqual(Object.keys(person).sort(), ["firstName", "lastName"]);
+    }
+  await verifyReader(runtime);
+  for (const role of ["public", "anon", "authenticated", "service_role"])
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_function_privilege($1,'outreach.assignment_workspace(uuid)','EXECUTE') AS allowed",
+          [role],
+        )
+      ).rows[0].allowed,
+      false,
+    );
+  for (const column of ["first_name", "last_name"])
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT has_column_privilege('jco_assignment_executor','outreach.people',$1,'SELECT') AS allowed",
+          [column],
+        )
+      ).rows[0].allowed,
+      true,
+    );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT has_table_privilege('jco_assignment_executor','outreach.people','SELECT') AS allowed",
+      )
+    ).rows[0].allowed,
+    false,
+  );
+  await assert.rejects(
+    reader.query("SELECT first_name,last_name FROM outreach.people"),
+    { code: "42501" },
+  );
+  await assert.rejects(reader.query("SET ROLE jco_assignment_executor"), {
+    code: "42501",
+  });
+  await assert.rejects(
+    assignmentAdmin(
+      runtime,
+      { action: "workspace", campaignId: randomUUID() },
+      actor,
+    ),
+    /unavailable/,
+  );
+
+  const eventId = randomUUID(),
+    assignmentId = randomUUID();
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "event",
+      campaignId,
+      id: eventId,
+      name: "Synthetic pair walk",
+      endDate: "2030-10-18",
+    },
+    actor,
+  );
+  await assignmentAdmin(
+    runtime,
+    {
+      action: "assignment",
+      campaignId,
+      eventId,
+      id: assignmentId,
+      name: "Pair 01",
+      kind: "building",
+      householdIds: [unit.id],
+    },
+    actor,
+  );
+  const credentialId = randomUUID();
+  const issued = await hostedFieldAdmin(
+    runtime,
+    {
+      action: "issue",
+      assignmentId,
+      id: credentialId,
+      label: "Pair 01 synthetic",
+    },
+    actor,
+  );
+  const download = await downloadHostedAssignment(runtime, issued.token!);
+  assert.equal(download.households.length, 1);
+  assert.equal(download.households[0].people.length, 2);
+  assert.doesNotMatch(
+    JSON.stringify(download),
+    /OTHER CAMPAIGN CANARY|Resident C|sourceKey|peopleCount|VANID/,
+  );
+  const operation: VisitOperation = {
+    id: randomUUID(),
+    schemaVersion: 1,
+    kind: "visit",
+    assignmentId,
+    householdId: unit.id,
+    visitId: randomUUID(),
+    createdAt: new Date().toISOString(),
+    result: "declined",
+    programs: [],
+    help: null,
+    corrections: [],
+    doNotContact: true,
+  };
+  await assert.rejects(
+    submitHostedOperation(runtime, issued.token!, {
+      ...operation,
+      householdId: workspace.households[1].id,
+    }),
+    /outside|authorized|assignment/i,
+  );
+  const receipt = await submitHostedOperation(
+    runtime,
+    issued.token!,
+    operation,
+  );
+  assert.deepEqual(
+    await submitHostedOperation(runtime, issued.token!, operation),
+    receipt,
+  );
+  assert.equal(
+    (
+      await assignmentAdmin(runtime, { action: "workspace", campaignId }, actor)
+    ).workspace.households.find((h) => h.id === unit.id)?.suppressed,
+    true,
+  );
+  assert.equal(
+    (await downloadHostedAssignment(runtime, issued.token!)).households[0]
+      .suppressed,
+    true,
+  );
+  await hostedFieldAdmin(
+    runtime,
+    { action: "revoke", assignmentId, id: credentialId, confirmed: true },
+    actor,
+  );
+  await assert.rejects(downloadHostedAssignment(runtime, issued.token!));
+  await assert.rejects(
+    submitHostedOperation(runtime, issued.token!, operation),
+  );
+  await pool.query(
+    "UPDATE outreach.campaigns SET end_at=now()-interval '40 days', deletion_at=((now()-interval '40 days') AT TIME ZONE 'America/New_York'+interval '30 days') AT TIME ZONE 'America/New_York' WHERE id=$1",
+    [campaignId],
+  );
+  await assert.rejects(
+    assignmentAdmin(runtime, { action: "workspace", campaignId }, actor),
+    /unavailable|expired/,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "SELECT count(*)::int AS n FROM outreach.people WHERE household_id=$1",
+        [unit.id],
+      )
+    ).rows[0].n,
+    2,
+    "expiry denies names before physical deletion runs",
+  );
   await verifyReader(runtime);
 });

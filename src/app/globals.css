@@ -1248,6 +1248,23 @@ select {
   gap: 16px;
   align-items: start;
 }
+.assigned-door {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.assigned-door:last-child {
+  border-bottom: 0;
+}
+.assigned-residents {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
 .assignment-toolbar {
   margin: 20px 0;
 }
