@@ -2,6 +2,10 @@
 
 Mobile outreach coordination for Jersey City, with offline household visits and follow-up tracking.
 
+**Current priority (2026-09-20): administrator usability, safety checks and volunteer handoff.** The owner deferred the self-service CSV uploader in favor of approved engineer-assisted local imports; additional offline/update work is deferred, not passed. Resident names beneath each expanded assigned door and corrected live-link wording are implemented locally with additive migration 016; hosted application/publication remains pending. [Organizer and volunteer guide](docs/OPERATIONS.md). Current evidence and remaining operator steps are in [PLAN.md](docs/PLAN.md); earlier next-step statements below are historical where superseded.
+
+**Current verified state (2026-09-18): Ward A is preloaded in the hosted database.** The owner-run setup completed at 10:12:06 UTC; an independent restricted READ ONLY audit at 10:14:27 UTC verified the live campaign, 473 people / 374 households / 358 buildings, one event and ten paired assignments with 37/38 doors each. Every approved door appears exactly once in its planned order, whole buildings stay together, and three practice campaigns remain visible. Zero Ward A links or visits exist. End/deletion dates and a post-activation retention heartbeat pass, as do runtime privilege/logging checks. The compatible app is deployed from merged `a97eac0`. Next: administrator refresh/select and visual walkthrough; review the event cutoff and geography before issuing links. Browser raw CSV upload and remaining field-launch safeguards are separate. [Details](docs/LIVE-PRELOAD.md). Earlier checkpoints below are historical where superseded.
+
 Latest implementation (2026-09-18): explicit live campaign support and a provider-authenticated, restricted-role **local preload** now implement the owner's Ward A campaign and ten-pair setup request. Additive migration 015 preserves practice data; campaign/import/event/all assignments save atomically. Browser raw CSV upload remains closed. Publication, private operator execution and the hosted receipt are separate steps, not implied by local tests. See [controlled preload](docs/LIVE-PRELOAD.md). Earlier checkpoints below are historical where superseded.
 
 Ward A preparation checkpoint (2026-09-18): the owner approved a separate campaign draft, ten paired-volunteer turf drafts with names blank, and a 30-day campaign ending October 18; planned identifying-data deletion is November 17 in New York time. A minimized, structurally valid source subset and nonoverlapping whole-building turf drafts are prepared **locally in ignored private files only**. The original source and existing campaigns are unchanged. No real-data campaign, assignments or links have been created in the app. Geographic review and the remaining intake/launch gates are still required; see [CSV intake status](docs/CSV-INTAKE.md).
@@ -49,8 +53,9 @@ CSV compatibility follow-up: the parser now recognizes `Rationale` as an alias f
 - [Engineering foundation and sources](docs/ARCHITECTURE.md)
 - [Work status and revision record](docs/PLAN.md)
 - [Delivery roadmap](docs/ROADMAP.md)
+- [Organizer and volunteer handoff](docs/OPERATIONS.md)
 - [Acceptance checklist](docs/ACCEPTANCE.md)
-- [Hosted synthetic-preview setup](docs/HOSTED-SETUP.md)
+- [Hosted setup and operator procedures](docs/HOSTED-SETUP.md)
 - [Backup and recovery safety](docs/RECOVERY.md)
 - [HTTPS synthetic deployment](docs/DEPLOYMENT.md)
 - [Synthetic fixture instructions](tests/fixtures/README.md)

@@ -1,6 +1,10 @@
 # Controlled Ward A preload
 
-Implemented September 18, 2026. Local implementation is not evidence that the hosted campaign exists. The operator receipt and administrator reload must confirm that separately.
+**Hosted preload completed September 18, 2026.** The owner-run setup succeeded at 10:12:06.527 UTC. An independent restricted READ ONLY audit at 10:14:27.256 UTC verified the saved campaign and all ten assignments. Administrator visual reload is the next confirmation, not another setup run.
+
+Verified: 473 people, 374 households, 358 buildings, one event, ten pairs with 37/38 doors. Each household matches the approved pair and position exactly once; all are Ward A, no building is split, and the three existing synthetic campaigns remain visible. Zero new-campaign links or visits exist. End/deletion timestamps match the plan. Retention heartbeat at 10:14:00 UTC is after live activation, with no overdue campaigns or failures. Restricted privileges and all 13 logging controls pass. These are actual hosted reads, not mock test results.
+
+The compatible production app is deployed from merged `a97eac0`; its public release matches the tested source tree. Migrations 014–015 are now applied and the database stage is `outreach-live`. Never edit their checksummed SQL or rerun initialization. The original source and private candidate are unchanged; the browser raw-file route remains closed.
 
 ## Authorized outcome
 

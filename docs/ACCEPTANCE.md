@@ -1,8 +1,10 @@
 # Acceptance checklist
 
-Status: production launch gate remains open. The synthetic field and import slices have executable tests; see [PLAN.md](PLAN.md) for dated evidence and limitations, including the 2026-09-08 import tests. The checks below remain unchecked until each complete production requirement has matching evidence; passing a synthetic subset does not approve resident-data use.
+Status: the broader field-launch gate remains open. The owner-authorized controlled Ward A administrator preload now contains real records and was independently database-verified on 2026-09-18 at 10:14:27 UTC. This does not close the combined checks below. See [LIVE-PRELOAD.md](LIVE-PRELOAD.md) for that narrow operational scope and [PLAN.md](PLAN.md) for dated evidence and limitations.
 
-Each implementation check should record a date, tested commit/build, result, and evidence. Use only synthetic residents until all required launch checks pass.
+Each implementation check should record a date, tested commit/build, result, and evidence. Use synthetic residents for remaining acceptance/failure testing; do not test by modifying the real preloaded population or recording demonstration visits against it.
+
+Scope/evidence update (2026-09-20): the owner selected administrator usability, safety checks and volunteer handoff; the browser uploader is deferred in favor of controlled engineering imports. Additional offline/update work is deferred, not marked passed. A fresh hosted read-only audit at 2026-09-21 01:17:15 UTC passed runtime privileges/logging, provider denial and recent retention health with zero overdue/failed campaigns. Missing credentials were rejected by seven administrator and three volunteer endpoints; foreign-origin administrator access was rejected. These are limited live checks, not closure of the combined gates or recovery/failure exercises. Resident-name projection/display is locally implemented; installation and publication remain pending.
 
 Product baseline: [PRD.md](PRD.md), including its Section 83 launch gate. The one-time review clarifications below are requirements to test, not passing test results.
 
@@ -27,6 +29,8 @@ Local evidence update (2026-09-18): the new general CSV engine and unregistered 
 - [ ] A07: Passwords are absent from application storage, URLs, responses and hosting logs. Provider abuse/rate-limit controls and a secure administrator recovery process are tested before launch; recovery UI guidance alone is not sufficient.
 
 ## Campaign administration
+
+- [ ] C12: Expanded assigned and reassigned household lists show the correct resident names under one address/unit, stay scoped to the selected unexpired campaign, render names as text and keep them out of administrator browser storage. Old database responses do not invent names. Synthetic regression/native evidence is in PLAN.md; hosted install, publication and organizer visual verification remain pending.
 
 - [x] C01: An approved administrator creates a synthetic campaign, reloads and retrieves the same saved record on the actual hosted connection. Owner confirmed on 2026-09-15 after automatic-list fix; local HTTP UI backed by live Supabase, not HTTPS deployment acceptance.
 - [ ] C02: The server/database rejects invalid dates and client-supplied authority/deletion fields; end/deletion timestamps use New York calendar arithmetic across DST.

@@ -222,6 +222,15 @@ test("organizer chooses doors, retries an ambiguous save and restores assignment
       ),
     ),
   ).toBe(false);
+  // Compatibility with an older database must not fabricate names or hide doors.
+  const savedDoors = page
+    .locator(".saved-assignment")
+    .first()
+    .locator(".assignment-doors")
+    .first();
+  await savedDoors.locator("summary").click();
+  await expect(savedDoors).toContainText("Resident names unavailable");
+  await expect(savedDoors).toContainText("100 Practice Avenue");
   await section.screenshot({
     path: `test-results/assignments-saved-${test.info().project.name}.png`,
   });

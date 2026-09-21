@@ -296,10 +296,7 @@ export function CampaignAssignments({
                             (h) => h.id === id,
                           );
                           return h ? (
-                            <p key={id}>
-                              {h.address}
-                              {h.unit ? ` · Unit ${h.unit}` : ""}
-                            </p>
+                            <AssignedDoor key={id} household={h} />
                           ) : null;
                         })}
                       </details>
@@ -317,10 +314,7 @@ export function CampaignAssignments({
                               (h) => h.id === id,
                             );
                             return h ? (
-                              <p key={id}>
-                                {h.address}
-                                {h.unit ? ` · Unit ${h.unit}` : ""}
-                              </p>
+                              <AssignedDoor key={id} household={h} />
                             ) : null;
                           })}
                         </details>
@@ -340,6 +334,7 @@ export function CampaignAssignments({
                           name={a.name}
                           administratorId={administratorId}
                           deletionAt={deletionAt}
+                          live={live}
                         />
                       )}
                       {fieldReady && (
@@ -630,5 +625,40 @@ export function CampaignAssignments({
         onSelect={setResultAssignment}
       />
     </>
+  );
+}
+
+function AssignedDoor({
+  household: h,
+}: {
+  household: AssignmentWorkspace["households"][number];
+}) {
+  return (
+    <div className="assigned-door">
+      <strong>
+        {h.address}
+        {h.unit ? ` · Unit ${h.unit}` : ""}
+      </strong>
+      {h.suppressed && <span className="fine">Do not contact</span>}
+      {h.people?.length ? (
+        <>
+          <span className="fine">
+            Listed {h.people.length === 1 ? "resident" : "residents"}
+          </span>
+          <ul className="assigned-residents" aria-label="Listed residents">
+            {h.people.map((person, index) => (
+              <li key={index}>
+                {person.firstName} {person.lastName}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <span className="fine">
+          Resident names unavailable. Refresh assignments or contact the website
+          owner.
+        </span>
+      )}
+    </div>
   );
 }

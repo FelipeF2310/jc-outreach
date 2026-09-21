@@ -13,7 +13,20 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
     address: `${i + 1} SYNTHETIC TEST WALK`,
     unit: "",
     ward: "A",
-    peopleCount: 1,
+    peopleCount: i === 0 ? 2 : 1,
+    people:
+      i === 0
+        ? [
+            { firstName: "Resident Alpha", lastName: "Fixture" },
+            { firstName: "Resident Beta", lastName: "Fixture" },
+          ]
+        : [
+            {
+              firstName:
+                i === 1 ? "Resident <em>Literal</em>" : `Resident ${i}`,
+              lastName: i === 2 ? "LongFixture".repeat(20) : "Fixture",
+            },
+          ],
     suppressed: false,
   }));
   let offset = 0;
@@ -73,7 +86,7 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
               deletionAt: workspace.deletionAt,
               importReady: true,
               assignmentsReady: true,
-              fieldReady: false,
+              fieldReady: true,
               importReceipt: {
                 campaignId,
                 importId: id(4),
@@ -86,6 +99,32 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
       });
     if (path.endsWith("/assignments"))
       return route.fulfill({ json: { workspace } });
+    if (path.endsWith("/field"))
+      return route.fulfill({
+        json: {
+          snapshot: {
+            assignmentId: route.request().postDataJSON().assignmentId,
+            labelsReady: true,
+            eventEndsAt: workspace.events[0].endsAt,
+            uploadEndsAt: "2030-10-21T21:00:00Z",
+            deletionAt: workspace.deletionAt,
+            credentials: [],
+            visits: [],
+            counts: { attempts: 0, repeats: 0, conversations: 0 },
+            buildingFailures: 0,
+            helpRequests: 0,
+            latestReceivedAt: null,
+          },
+        },
+      });
+    if (path.endsWith("/help"))
+      return route.fulfill({
+        json: { queue: { campaignId, ready: false, requests: [] } },
+      });
+    if (path.endsWith("/corrections"))
+      return route.fulfill({
+        json: { queue: { campaignId, ready: false, reports: [] } },
+      });
     return route.abort();
   });
   await page.goto("/admin");
@@ -101,6 +140,46 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
     await expect(page.locator(".saved-assignment").nth(i)).toContainText(
       `${assignments[i].name} · ${counts[i]} doors`,
     );
+  const doors = page
+    .locator(".saved-assignment")
+    .first()
+    .locator(".assignment-doors");
+  await expect(
+    doors.getByText("Resident Alpha Fixture", { exact: true }),
+  ).not.toBeVisible();
+  await doors.locator("summary").click();
+  await expect(
+    doors.getByText("Resident Alpha Fixture", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    doors.getByText("Resident Beta Fixture", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    doors.getByText("1 SYNTHETIC TEST WALK", { exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    doors.getByText("Resident <em>Literal</em> Fixture", { exact: true }),
+  ).toBeVisible();
+  await expect(doors.locator("em")).toHaveCount(0);
+  const links = page.getByRole("region", {
+    name: "Volunteer links for Pair 01",
+    exact: true,
+  });
+  await links
+    .getByRole("button", { name: "Volunteer links", exact: true })
+    .click();
+  await expect(links.getByLabel("Volunteer / link name")).toHaveValue(
+    "Pair 01",
+  );
+  await expect(
+    links.getByRole("button", { name: "Generate private link" }),
+  ).toBeEnabled();
+  await expect(links).not.toContainText("Synthetic testing only");
+  expect(
+    await page.evaluate(() =>
+      JSON.stringify({ ...localStorage, ...sessionStorage }),
+    ),
+  ).not.toContain("Resident Alpha");
   await page
     .getByRole("button", { name: "Create assignment", exact: true })
     .click();
@@ -115,6 +194,12 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBeTruthy();
+    await doors
+      .locator(".assigned-door")
+      .first()
+      .screenshot({
+        path: `test-results/resident-card-${test.info().project.name}-${width}.png`,
+      });
   }
   await page.getByRole("button", { name: "Close assignment builder" }).click();
   await page.screenshot({
@@ -124,6 +209,13 @@ test("live campaign shows all ten preloaded pairs without practice labeling (syn
   await page.reload();
   await expect(
     page.getByText("1 events · 10 saved assignments", { exact: true }),
+  ).toBeVisible();
+  await doors.locator("summary").click();
+  await expect(
+    doors.getByText("Resident Alpha Fixture", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    doors.getByText("Resident Beta Fixture", { exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Current campaign", { exact: true })
