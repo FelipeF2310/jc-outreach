@@ -2,6 +2,8 @@
 
 ## Resident-name update 016 — prepared, not applied
 
+Operator retry note (2026-09-21 01:33 UTC): the first attempt stopped at `connection_configuration`, with `migrationCommitted=false`, before either database connection. The private launcher appended a newline to the password; the exact-byte validator correctly rejected it. The launcher now uses the tracked/tested `scripts/lib/operator-password.sh` writer with no delimiter and preserves entered whitespace. No password reset, TLS relaxation, database reset or SQL change is needed. Close the failed prompt and use the reopened corrected helper. Actual migration success is still pending.
+
 Current scope (September 20, 2026): the hosted Ward A campaign is live, alongside existing practice campaigns; applied migrations 002–015 are immutable. The earlier synthetic-only setup sections below are historical where superseded by [LIVE-PRELOAD.md](LIVE-PRELOAD.md). Do not rerun initialization, import, stage activation or retention setup.
 
 The new administrator display uses first/last names beneath each expanded assigned door. The volunteer household screen already shows names and does not need a larger payload. Local migration 016 extends only the existing campaign-scoped administrator projection, granting the existing non-login executor two name columns. It does not reimport a CSV or change resident rows, assignments, visits, links, passwords, campaign dates or the deletion schedule.
